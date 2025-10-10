@@ -217,10 +217,10 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpeHhxd3Rra3JkcHZhZ3prZWtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDA5MTQsImV4cCI6MjA3NTY3NjkxNH0.yF_ZOo1GTNJpesElxuKUJnNQnnpZzcYxpYn2A3B8vcE'; // 例如：eyJhbGciOiJIUzI1NiI...
     
     // ----------------------------------------------------------------------
-    // 步骤 2：创建客户端 (重命名为 supabaseClient，解决 TDZ 错误)
+    // 步骤 2：创建客户端 (使用 window.supabase 明确引用全局对象，避免 TDZ 错误)
     // ----------------------------------------------------------------------
-    // 确保使用全局的 supabase 对象来调用 createClient
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // 这一步现在是稳定的：使用全局的 supabase.createClient 创建本地的 supabaseClient 实例
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     const DISHES_TABLE = 'dishes';
     
@@ -243,36 +243,27 @@
     
     // 核心函数：从 Supabase 实时加载数据
     async function loadInitialData() {
-    console.log("Attempting to fetch data from Supabase...");
-    
-    const { data, error } = await supabaseClient
-        .from(DISHES_TABLE)
-        .select('*');
+        const { data, error } = await supabaseClient
+            .from(DISHES_TABLE)
+            .select('*');
 
-    if (error) {
-        // 如果这里打印了错误，就是 RLS 或连接问题
-        console.error("SELECT Error (Failed to retrieve data):", error.message);
-        return;
+        if (error) {
+            console.error("Error fetching initial data:", error.message);
+            return;
+        }
+        
+        dishData = data;
+        renderTable();
+        setupRealtimeListener(); 
     }
-    
-    // 🚨 检查点 A：确认数据结构和数量
-    if (data && data.length > 0) {
-        console.log("Data fetched successfully. Total dishes:", data.length); 
-        console.log("First dish structure:", data[0]); // <-- 检查字段名是否是 id, name, rating, link
-    } else {
-        console.log("Data fetched successfully, but the result array is empty or null.");
-    }
-    
-    dishData = data;
-    renderTable(); 
-}
 
     function setupRealtimeListener() {
-        // 使用新的变量名 supabaseClient
+        // 监听 dishes 表格的任何变化
         supabaseClient
             .channel('public:dishes') 
             .on('postgres_changes', { event: '*', schema: 'public', table: DISHES_TABLE }, (payload) => {
                 console.log('Realtime change received!', payload.eventType);
+                // 收到变化通知后重新加载和渲染数据
                 loadInitialData(); 
             })
             .subscribe();
@@ -280,41 +271,41 @@
 
     // 表格渲染和监听器
     function renderTable() {
-    const tableBody = document.querySelector('#meal-table tbody');
-    tableBody.innerHTML = ''; 
+        const tableBody = document.querySelector('#meal-table tbody');
+        tableBody.innerHTML = ''; 
 
-    console.log("Starting render. Dishes to render:", dishData.length); 
-
-    dishData.forEach((dish, index) => {
-        if (!dish.id) {
-            // 如果您的新增数据没有 ID，渲染会被跳过
-            console.error(`Render Error: Dish at index ${index} missing 'id' key. Skipping.`, dish);
-            return; 
-        }
-        
-        // 🚨 检查点 B：确认单个菜品开始渲染
-        console.log(`Rendering dish ${index}:`, dish.name); 
-        
-        const linkContent = dish.link && dish.link.trim() !== "" 
-            ? `<a href="${dish.link}" target="_blank">查看食谱链接</a>` 
-            : `<span class="empty-link">无外部链接</span>`;
+        dishData.forEach(dish => {
+            if (!dish.id) return; 
             
-        const newRow = document.createElement('tr');
-        newRow.setAttribute('data-row-id', dish.id); 
-        newRow.setAttribute('data-rating', dish.rating); 
+            const linkContent = dish.link && dish.link.trim() !== "" 
+                ? `<a href="${dish.link}" target="_blank">查看食谱链接</a>` 
+                : `<span class="empty-link">无外部链接</span>`;
+                
+            const newRow = document.createElement('tr');
+            newRow.setAttribute('data-row-id', dish.id); 
+            newRow.setAttribute('data-rating', dish.rating); 
 
-        newRow.innerHTML = `
-            <td>${dish.name}</td>
-            <td class="rating-cell"><span class="rating-stars" data-value="${dish.rating}">${renderStars(dish.rating)}</span></td>
-            <td class="recipe-link">${linkContent}</td>
-            <td><span class="image-placeholder">占位符/Placeholder</span></td>
-        `;
+            newRow.innerHTML = `
+                <td>${dish.name}</td>
+                <td class="rating-cell"><span class="rating-stars" data-value="${dish.rating}">${renderStars(dish.rating)}</span></td>
+                <td class="recipe-link">${linkContent}</td>
+                <td><span class="image-placeholder">占位符/Placeholder</span></td>
+            `;
+            
+            tableBody.appendChild(newRow);
+            
+            const newRatingCell = newRow.querySelector('.rating-cell');
+            // 附加评分点击事件监听器
+            attachRatingListener(newRatingCell, dish.id); 
+        });
+
+        document.getElementById('random-count').setAttribute('max', dishData.length || 1);
         
-        tableBody.appendChild(newRow); 
-    });
-}
+        sortTable(false); 
+        filterTable(false); 
+    }
     
-    // 评分更新函数 (写入 Supabase)
+    // 评分更新函数 (⭐⭐⭐ 修复了使用 supabaseClient 变量的问题 ⭐⭐⭐)
     function attachRatingListener(cell, dishId) {
         cell.addEventListener('click', async function(event) {
             const starSpan = cell.querySelector('.rating-stars');
@@ -332,7 +323,7 @@
             starSpan.textContent = renderStars(newRating);
             starSpan.setAttribute('data-value', newRating);
 
-            // 2. 将更新写入 Supabase (使用新的变量名)
+            // 2. 将更新写入 Supabase (使用正确的 supabaseClient 变量)
             const { error } = await supabaseClient
                 .from(DISHES_TABLE)
                 .update({ rating: newRating })
@@ -342,12 +333,13 @@
                 console.error("Error updating rating:", error.message);
                 alert("更新评分失败，请检查 Supabase 权限设置。");
             } else {
-                console.log("Rating updated successfully.");
+                // 打印日志，确认写入成功
+                console.log("Rating updated successfully to:", newRating); 
             }
         });
     }
 
-    // 新增菜品功能 (写入 Supabase)
+    // 新增菜品功能
     function addNewDish() {
         const dishName = prompt("请输入新的菜名 (Dish Name):");
         if (!dishName || dishName.trim() === "") {
@@ -363,7 +355,7 @@
             rating: MAX_STARS 
         };
         
-        // 将新行插入到 Supabase 表格 (使用新的变量名)
+        // 将新行插入到 Supabase 表格 (使用正确的 supabaseClient 变量)
         supabaseClient
             .from(DISHES_TABLE)
             .insert([newDish])
@@ -378,7 +370,7 @@
             });
     }
 
-    // 筛选、排序、随机抽取功能 (保持不变)
+    // 筛选、排序、随机抽取功能 (逻辑与之前版本相同)
     function filterTable(resetRandom=true) { 
         const minRating = parseInt(document.getElementById('rating-filter').value);
         const allRows = document.querySelectorAll('#meal-table tbody tr');
