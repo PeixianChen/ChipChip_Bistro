@@ -1,11 +1,17 @@
 backend:
   # 必须使用 Git Gateway 或 GitHub/GitLab/Bitbucket 认证。
-  # 推荐使用 GitHub 认证，因为它最简单。
-  # 替换 YOUR_GITHUB_REPO_NAME 为你的仓库名 (例如: my-recipe-blog)
+  # 替换 YOUR_GITHUB_REPO_NAME 为你的仓库名 (例如: ChipChip_Bistro)
   name: github
-  repo: peixianchen/ChipChip_Bistro
+  repo: PeixianChen/ChipChip_Bistro # 确保这里的用户名和仓库名正确
   branch: main # 你的主分支名称
   
+# --- 新增的配置：解决 CMS 启动错误 ---
+# 媒体文件的本地存储位置（相对于仓库根目录）
+media_folder: "static/img" 
+# 媒体文件在最终网站上的公开路径（相对于网站根目录）
+public_folder: "/static/img"
+# --- 新增配置结束 ---
+
 # (可选) 设置管理界面语言为中文
 locale: zh
 
