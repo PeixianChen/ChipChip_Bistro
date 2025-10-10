@@ -1,0 +1,48 @@
+backend:
+  # 必须使用 Git Gateway 或 GitHub/GitLab/Bitbucket 认证。
+  # 推荐使用 GitHub 认证，因为它最简单。
+  # 替换 YOUR_GITHUB_REPO_NAME 为你的仓库名 (例如: my-recipe-blog)
+  name: github
+  repo: [YOUR_GITHUB_USERNAME]/[YOUR_GITHUB_REPO_NAME]
+  branch: main # 你的主分支名称
+  
+# (可选) 设置管理界面语言为中文
+locale: zh
+
+# 定义 CMS 管理界面中的内容集合
+collections:
+  - name: "dishes" # 内部名称，用于 CMS 路由
+    label: "菜谱清单" # 管理界面显示的名称
+    folder: "/" # 指定内容文件所在的目录（即仓库根目录）
+    extension: "json" # 文件的扩展名
+    format: "json" # 文件格式为 JSON
+    # 您的数据文件名为 dishes.json
+    files:
+      - file: "dishes.json" # CMS 要编辑的文件路径
+        label: "所有菜品数据"
+        name: "dish_data"
+        # 定义 dishes.json 数组中的每一个对象（菜品）的字段
+        fields:
+          - name: "id"
+            label: "唯一ID (请勿修改)"
+            widget: "number"
+            value_type: "int"
+            min: 0
+            required: true
+            hint: "用于系统排序和区分，请勿随意更改"
+          - name: "name"
+            label: "菜名"
+            widget: "string"
+            required: true
+          - name: "rating"
+            label: "推荐等级 (1-5 星)"
+            widget: "select"
+            options: [5, 4, 3, 2, 1] # 评分选项
+            default: 5
+            required: true
+          - name: "link"
+            label: "菜谱链接"
+            widget: "string"
+            required: false
+            default: ""
+            hint: "可选的外部食谱链接"
