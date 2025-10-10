@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supabase 实时同步菜谱清单</title>
     <style>
-        /* CSS 样式与之前保持一致，此处省略 */
         body {
             font-family: -apple-system, BlinkSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: #f7f7f7;
@@ -212,18 +211,20 @@
 
 <script>
     // ----------------------------------------------------------------------
-    // ⚠️ 第 A 步：替换为您的 Supabase 配置 ⚠️
+    // ⚠️ 步骤 1：替换为您的 Supabase 配置 ⚠️
     // ----------------------------------------------------------------------
     const SUPABASE_URL = 'https://cixxqwtkkrdpvagzkekj.supabase.co'; // 例如：https://xyz.supabase.co
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpeHhxd3Rra3JkcHZhZ3prZWtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDA5MTQsImV4cCI6MjA3NTY3NjkxNH0.yF_ZOo1GTNJpesElxuKUJnNQnnpZzcYxpYn2A3B8vcE'; // 例如：eyJhbGciOiJIUzI1NiI...
     
-    // 初始化 Supabase 客户端
+    // ----------------------------------------------------------------------
+    // 步骤 2：创建客户端 (必须在所有使用 'supabase' 变量的代码之前)
+    // ----------------------------------------------------------------------
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     const DISHES_TABLE = 'dishes';
     
     // ----------------------------------------------------------------------
-    // 全局变量和辅助函数
+    // 步骤 3：所有函数和逻辑
     // ----------------------------------------------------------------------
 
     const STAR_FULL = '★';
@@ -239,10 +240,7 @@
         return stars;
     }
     
-    // ----------------------------------------------------------------------
     // 核心函数：从 Supabase 实时加载数据
-    // ----------------------------------------------------------------------
-
     async function loadInitialData() {
         // 先加载一次初始数据，避免实时监听建立前的延迟
         const { data, error } = await supabase
@@ -251,42 +249,42 @@
 
         if (error) {
             console.error("Error fetching initial data:", error.message);
-            alert("加载初始数据失败，请检查 Supabase 配置和网络连接。");
+            // 🚨 这一步如果失败，通常是 RLS 权限或连接问题
             return;
         }
         
         dishData = data;
         renderTable();
-        setupRealtimeListener(); // 启动监听器
+        // 只有在数据成功加载后，才启动实时监听器
+        setupRealtimeListener(); 
     }
 
     function setupRealtimeListener() {
         // 使用 Supabase 的实时功能监听 dishes 表格的任何变化
         supabase
-            .channel('public:dishes') // 监听名为 'public:dishes' 的频道
+            .channel('public:dishes') 
             .on('postgres_changes', { event: '*', schema: 'public', table: DISHES_TABLE }, (payload) => {
                 console.log('Realtime change received!', payload.eventType);
-                // 重新获取全部数据并渲染，这是最简单的方法来处理 Insert, Update, Delete
+                // 收到变化通知后重新加载和渲染数据
                 loadInitialData(); 
             })
             .subscribe();
     }
 
-    // ----------------------------------------------------------------------
     // 表格渲染和监听器
-    // ----------------------------------------------------------------------
-
     function renderTable() {
         const tableBody = document.querySelector('#meal-table tbody');
         tableBody.innerHTML = ''; 
 
         dishData.forEach(dish => {
+            // 确保 dish.id 存在，它是 Supabase/PostgreSQL 的唯一标识
+            if (!dish.id) return; 
+            
             const linkContent = dish.link && dish.link.trim() !== "" 
                 ? `<a href="${dish.link}" target="_blank">查看食谱链接</a>` 
                 : `<span class="empty-link">无外部链接</span>`;
                 
             const newRow = document.createElement('tr');
-            // Supabase/PostgreSQL 使用 'id' 字段作为唯一标识
             newRow.setAttribute('data-row-id', dish.id); 
             newRow.setAttribute('data-rating', dish.rating); 
 
@@ -300,20 +298,17 @@
             tableBody.appendChild(newRow);
             
             const newRatingCell = newRow.querySelector('.rating-cell');
-            // 附加评分点击事件监听器，传入 PostgreSQL ID
             attachRatingListener(newRatingCell, dish.id); 
         });
 
-        document.getElementById('random-count').setAttribute('max', dishData.length);
+        document.getElementById('random-count').setAttribute('max', dishData.length || 1);
         
         // 重新应用当前的筛选和排序状态
         sortTable(false); 
         filterTable(false); 
     }
     
-    // ----------------------------------------------------------------------
-    // 评分更新函数 (现在写入 Supabase)
-    // ----------------------------------------------------------------------
+    // 评分更新函数 (写入 Supabase)
     function attachRatingListener(cell, dishId) {
         cell.addEventListener('click', async function(event) {
             const starSpan = cell.querySelector('.rating-stars');
@@ -341,15 +336,12 @@
                 console.error("Error updating rating:", error.message);
                 alert("更新评分失败，请检查 Supabase 权限设置。");
             } else {
-                console.log("Rating updated successfully in Supabase.");
-                // 实时监听器会自动处理后续的表格刷新
+                console.log("Rating updated successfully.");
             }
         });
     }
 
-    // ----------------------------------------------------------------------
-    // 新增菜品功能 (现在写入 Supabase)
-    // ----------------------------------------------------------------------
+    // 新增菜品功能 (写入 Supabase)
     function addNewDish() {
         const dishName = prompt("请输入新的菜名 (Dish Name):");
         if (!dishName || dishName.trim() === "") {
@@ -362,7 +354,7 @@
         const newDish = {
             name: dishName,
             link: dishLink || "",
-            rating: MAX_STARS // 默认 5 星
+            rating: MAX_STARS 
         };
         
         // 将新行插入到 Supabase 表格
@@ -376,26 +368,19 @@
                     alert("新增菜品失败，请检查 Supabase 权限设置。");
                 } else {
                     alert(`菜品 "${dishName}" 已成功添加并实时保存！`);
-                    // 实时监听器会自动刷新表格
                 }
             });
     }
 
-    // ----------------------------------------------------------------------
     // 筛选、排序、随机抽取功能 (与之前版本逻辑相同)
-    // ----------------------------------------------------------------------
-
     function filterTable(resetRandom=true) { 
         const minRating = parseInt(document.getElementById('rating-filter').value);
         const allRows = document.querySelectorAll('#meal-table tbody tr');
-
         allRows.forEach(row => {
             if (resetRandom) {
                 row.classList.remove('random-selected'); 
             }
-            
             const rating = parseInt(row.getAttribute('data-rating')) || 0;
-            
             if (rating < minRating) {
                 row.classList.add('filtered-out');
             } else {
@@ -408,23 +393,18 @@
         const tableBody = document.querySelector('#meal-table tbody');
         const rows = Array.from(tableBody.querySelectorAll('tr'));
         const sortOrder = document.getElementById('sort-order').value; 
-
         rows.sort((rowA, rowB) => {
             const ratingA = parseInt(rowA.getAttribute('data-rating')) || 0;
             const ratingB = parseInt(rowB.getAttribute('data-rating')) || 0;
-
             let comparison = 0;
             if (ratingA > ratingB) {
                 comparison = 1;
             } else if (ratingA < ratingB) {
                 comparison = -1;
             }
-            
             return (sortOrder === 'asc') ? comparison : comparison * -1;
         });
-
         rows.forEach(row => tableBody.appendChild(row));
-        
         if (resetRandom) {
              document.querySelectorAll('#meal-table tbody tr').forEach(r => r.classList.remove('random-selected'));
         }
@@ -435,31 +415,25 @@
         const count = parseInt(countInput.value);
         const allRows = Array.from(document.querySelectorAll('#meal-table tbody tr'));
         const totalRows = allRows.length;
-        
         if (isNaN(count) || count < 1 || count > totalRows) {
             alert(`请输入一个 1 到 ${totalRows} 之间的有效数字。`);
             countInput.value = Math.min(Math.max(1, count), totalRows);
             return;
         }
-
         document.querySelectorAll('#meal-table tbody tr').forEach(r => {
             r.classList.remove('filtered-out');
             r.classList.remove('random-selected');
         });
-        
         const activeRows = allRows.filter(row => !row.classList.contains('filtered-out'));
         for (let i = activeRows.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [activeRows[i], activeRows[j]] = [activeRows[j], activeRows[i]];
         }
-        
         const selectedRows = activeRows.slice(0, count);
-
         allRows.forEach(row => {
             row.classList.remove('random-selected');
             row.classList.add('filtered-out'); 
         });
-
         selectedRows.forEach(row => {
             row.classList.remove('filtered-out'); 
             row.classList.add('random-selected'); 
@@ -468,7 +442,7 @@
     
     // 页面加载时初始化
     document.addEventListener('DOMContentLoaded', () => {
-        loadInitialData(); // 加载初始数据并启动实时监听
+        loadInitialData(); 
     });
 </script>
 
