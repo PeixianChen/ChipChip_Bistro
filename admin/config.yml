@@ -1,33 +1,38 @@
 backend:
   # 必须使用 Git Gateway 或 GitHub/GitLab/Bitbucket 认证。
-  # 替换 YOUR_GITHUB_REPO_NAME 为你的仓库名 (例如: ChipChip_Bistro)
   name: github
   repo: PeixianChen/ChipChip_Bistro # 确保这里的用户名和仓库名正确
-  branch: main # 你的主分支名称
+  branch: main 
   
-# --- 新增的配置：解决 CMS 启动错误 ---
+# --- 核心配置：解决 CMS 启动错误 ---
+
+# 解决 'media_library' 缺失的报错
+media_library:
+  # 使用 Netlify CMS 推荐的内置媒体库
+  name: "cloudinary"
+  config:
+    # 这里的配置可以留空，只要声明了 media_library 即可满足要求
+    # 即使您不使用 Cloudinary，这种配置模式也最能兼容 Decap 的最新要求
+    
 # 媒体文件的本地存储位置（相对于仓库根目录）
 media_folder: "static/img" 
 # 媒体文件在最终网站上的公开路径（相对于网站根目录）
 public_folder: "/static/img"
-# --- 新增配置结束 ---
 
-# (可选) 设置管理界面语言为中文
+# --- 核心配置结束 ---
+
 locale: zh
 
-# 定义 CMS 管理界面中的内容集合
 collections:
-  - name: "dishes" # 内部名称，用于 CMS 路由
-    label: "菜谱清单" # 管理界面显示的名称
-    folder: "/" # 指定内容文件所在的目录（即仓库根目录）
-    extension: "json" # 文件的扩展名
-    format: "json" # 文件格式为 JSON
-    # 您的数据文件名为 dishes.json
+  - name: "dishes" 
+    label: "菜谱清单" 
+    folder: "/" 
+    extension: "json"
+    format: "json" 
     files:
-      - file: "dishes.json" # CMS 要编辑的文件路径
+      - file: "dishes.json" 
         label: "所有菜品数据"
         name: "dish_data"
-        # 定义 dishes.json 数组中的每一个对象（菜品）的字段
         fields:
           - name: "id"
             label: "唯一ID (请勿修改)"
@@ -43,7 +48,7 @@ collections:
           - name: "rating"
             label: "推荐等级 (1-5 星)"
             widget: "select"
-            options: [5, 4, 3, 2, 1] # 评分选项
+            options: [5, 4, 3, 2, 1] 
             default: 5
             required: true
           - name: "link"
