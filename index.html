@@ -217,9 +217,10 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpeHhxd3Rra3JkcHZhZ3prZWtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDA5MTQsImV4cCI6MjA3NTY3NjkxNH0.yF_ZOo1GTNJpesElxuKUJnNQnnpZzcYxpYn2A3B8vcE'; // 例如：eyJhbGciOiJIUzI1NiI...
     
     // ----------------------------------------------------------------------
-    // 步骤 2：创建客户端 (必须在所有使用 'supabase' 变量的代码之前)
+    // 步骤 2：创建客户端 (重命名为 supabaseClient，解决 TDZ 错误)
     // ----------------------------------------------------------------------
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // 确保使用全局的 supabase 对象来调用 createClient
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     const DISHES_TABLE = 'dishes';
     
@@ -242,30 +243,28 @@
     
     // 核心函数：从 Supabase 实时加载数据
     async function loadInitialData() {
-        // 先加载一次初始数据，避免实时监听建立前的延迟
-        const { data, error } = await supabase
+        // 使用新的变量名 supabaseClient
+        const { data, error } = await supabaseClient
             .from(DISHES_TABLE)
             .select('*');
 
         if (error) {
             console.error("Error fetching initial data:", error.message);
-            // 🚨 这一步如果失败，通常是 RLS 权限或连接问题
             return;
         }
         
         dishData = data;
         renderTable();
-        // 只有在数据成功加载后，才启动实时监听器
+        // 启动实时监听器
         setupRealtimeListener(); 
     }
 
     function setupRealtimeListener() {
-        // 使用 Supabase 的实时功能监听 dishes 表格的任何变化
-        supabase
+        // 使用新的变量名 supabaseClient
+        supabaseClient
             .channel('public:dishes') 
             .on('postgres_changes', { event: '*', schema: 'public', table: DISHES_TABLE }, (payload) => {
                 console.log('Realtime change received!', payload.eventType);
-                // 收到变化通知后重新加载和渲染数据
                 loadInitialData(); 
             })
             .subscribe();
@@ -277,7 +276,6 @@
         tableBody.innerHTML = ''; 
 
         dishData.forEach(dish => {
-            // 确保 dish.id 存在，它是 Supabase/PostgreSQL 的唯一标识
             if (!dish.id) return; 
             
             const linkContent = dish.link && dish.link.trim() !== "" 
@@ -303,7 +301,6 @@
 
         document.getElementById('random-count').setAttribute('max', dishData.length || 1);
         
-        // 重新应用当前的筛选和排序状态
         sortTable(false); 
         filterTable(false); 
     }
@@ -326,8 +323,8 @@
             starSpan.textContent = renderStars(newRating);
             starSpan.setAttribute('data-value', newRating);
 
-            // 2. 将更新写入 Supabase
-            const { error } = await supabase
+            // 2. 将更新写入 Supabase (使用新的变量名)
+            const { error } = await supabaseClient
                 .from(DISHES_TABLE)
                 .update({ rating: newRating })
                 .eq('id', dishId); // 匹配 ID
@@ -357,8 +354,8 @@
             rating: MAX_STARS 
         };
         
-        // 将新行插入到 Supabase 表格
-        supabase
+        // 将新行插入到 Supabase 表格 (使用新的变量名)
+        supabaseClient
             .from(DISHES_TABLE)
             .insert([newDish])
             .select()
@@ -372,7 +369,7 @@
             });
     }
 
-    // 筛选、排序、随机抽取功能 (与之前版本逻辑相同)
+    // 筛选、排序、随机抽取功能 (保持不变)
     function filterTable(resetRandom=true) { 
         const minRating = parseInt(document.getElementById('rating-filter').value);
         const allRows = document.querySelectorAll('#meal-table tbody tr');
