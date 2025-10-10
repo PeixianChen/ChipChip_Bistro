@@ -243,21 +243,29 @@
     
     // 核心函数：从 Supabase 实时加载数据
     async function loadInitialData() {
-        // 使用新的变量名 supabaseClient
-        const { data, error } = await supabaseClient
-            .from(DISHES_TABLE)
-            .select('*');
+    console.log("Attempting to fetch data from Supabase...");
+    
+    const { data, error } = await supabaseClient
+        .from(DISHES_TABLE)
+        .select('*');
 
-        if (error) {
-            console.error("Error fetching initial data:", error.message);
-            return;
-        }
-        
-        dishData = data;
-        renderTable();
-        // 启动实时监听器
-        setupRealtimeListener(); 
+    if (error) {
+        // 如果这里打印了错误，就是 RLS 或连接问题
+        console.error("SELECT Error (Failed to retrieve data):", error.message);
+        return;
     }
+    
+    // 🚨 检查点 A：确认数据结构和数量
+    if (data && data.length > 0) {
+        console.log("Data fetched successfully. Total dishes:", data.length); 
+        console.log("First dish structure:", data[0]); // <-- 检查字段名是否是 id, name, rating, link
+    } else {
+        console.log("Data fetched successfully, but the result array is empty or null.");
+    }
+    
+    dishData = data;
+    renderTable(); 
+}
 
     function setupRealtimeListener() {
         // 使用新的变量名 supabaseClient
@@ -272,38 +280,39 @@
 
     // 表格渲染和监听器
     function renderTable() {
-        const tableBody = document.querySelector('#meal-table tbody');
-        tableBody.innerHTML = ''; 
+    const tableBody = document.querySelector('#meal-table tbody');
+    tableBody.innerHTML = ''; 
 
-        dishData.forEach(dish => {
-            if (!dish.id) return; 
-            
-            const linkContent = dish.link && dish.link.trim() !== "" 
-                ? `<a href="${dish.link}" target="_blank">查看食谱链接</a>` 
-                : `<span class="empty-link">无外部链接</span>`;
-                
-            const newRow = document.createElement('tr');
-            newRow.setAttribute('data-row-id', dish.id); 
-            newRow.setAttribute('data-rating', dish.rating); 
+    console.log("Starting render. Dishes to render:", dishData.length); 
 
-            newRow.innerHTML = `
-                <td>${dish.name}</td>
-                <td class="rating-cell"><span class="rating-stars" data-value="${dish.rating}">${renderStars(dish.rating)}</span></td>
-                <td class="recipe-link">${linkContent}</td>
-                <td><span class="image-placeholder">占位符/Placeholder</span></td>
-            `;
-            
-            tableBody.appendChild(newRow);
-            
-            const newRatingCell = newRow.querySelector('.rating-cell');
-            attachRatingListener(newRatingCell, dish.id); 
-        });
-
-        document.getElementById('random-count').setAttribute('max', dishData.length || 1);
+    dishData.forEach((dish, index) => {
+        if (!dish.id) {
+            // 如果您的新增数据没有 ID，渲染会被跳过
+            console.error(`Render Error: Dish at index ${index} missing 'id' key. Skipping.`, dish);
+            return; 
+        }
         
-        sortTable(false); 
-        filterTable(false); 
-    }
+        // 🚨 检查点 B：确认单个菜品开始渲染
+        console.log(`Rendering dish ${index}:`, dish.name); 
+        
+        const linkContent = dish.link && dish.link.trim() !== "" 
+            ? `<a href="${dish.link}" target="_blank">查看食谱链接</a>` 
+            : `<span class="empty-link">无外部链接</span>`;
+            
+        const newRow = document.createElement('tr');
+        newRow.setAttribute('data-row-id', dish.id); 
+        newRow.setAttribute('data-rating', dish.rating); 
+
+        newRow.innerHTML = `
+            <td>${dish.name}</td>
+            <td class="rating-cell"><span class="rating-stars" data-value="${dish.rating}">${renderStars(dish.rating)}</span></td>
+            <td class="recipe-link">${linkContent}</td>
+            <td><span class="image-placeholder">占位符/Placeholder</span></td>
+        `;
+        
+        tableBody.appendChild(newRow); 
+    });
+}
     
     // 评分更新函数 (写入 Supabase)
     function attachRatingListener(cell, dishId) {
