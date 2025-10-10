@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git 同步菜谱清单（需手动编辑 JSON）</title>
+    <style>
+        /* --- 整体布局与排版 --- */
+        body {
+            font-family: -apple-system, BlinkSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f7f7f7;
+            padding: 20px;
+            color: #333;
+        }
+
+        .main-container {
+            max-width: 1050px;
+            margin: 0 auto;
+        }
+
+        .controls-bar {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .controls-bar label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        .controls-bar select, 
+        .controls-bar input[type="number"],
+        .controls-bar button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            white-space: nowrap; 
+        }
+        
+        .controls-bar input[type="number"] {
+            width: 60px;
+            text-align: center;
+            cursor: text;
+        }
+
+        .controls-bar button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+        }
+
+        .controls-bar button:hover {
+            background-color: #0056b3;
+        }
+        
+        .meal-table-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        /* --- 表格样式 --- */
+        .meal-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .meal-table th, .meal-table td {
+            padding: 15px 15px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+
+        .meal-table th {
+            background-color: #4A90E2;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .meal-table tbody tr:hover:not(.filtered-out) {
+            background-color: #f0f8ff;
+        }
+        
+        /* 突出显示随机抽取的行 */
+        .meal-table tbody tr.random-selected {
+            background-color: #f7e6ff; /* 浅紫色突出显示 */
+        }
+        
+        /* 隐藏被筛选的行 */
+        .meal-table tbody tr.filtered-out {
+            display: none;
+        }
+
+        /* --- 推荐等级 (Rating) 样式 --- */
+        .rating-cell {
+            text-align: center;
+            cursor: pointer;
+            width: 150px;
+            position: relative;
+        }
+
+        .rating-stars {
+            color: #FFD700; /* 金黄色 */
+            font-size: 1.2em;
+            white-space: nowrap;
+            letter-spacing: 2px;
+            user-select: none;
+        }
+
+        /* --- 其他列样式 --- */
+        .meal-table td:nth-child(4) { 
+            text-align: center;
+        }
+
+        .recipe-link a {
+            color: #007BFF;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .recipe-link a:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        .image-placeholder {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .empty-link {
+            color: #aaa;
+            font-style: italic;
+        }
+        
+        .warning-message {
+            padding: 10px;
+            margin-bottom: 15px;
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+
+    <div class="warning-message">
+        ❗ **重要提示：** 当前模式下，您的所有修改 (评分/新增) **仅在当前浏览器会话中有效**。要永久保存更改，您必须手动修改 **`dishes.json`** 文件并提交到 Git。
+    </div>
+
+    <div class="controls-bar">
+        <div class="control-group">
+            <label for="rating-filter">筛选最小星级:</label>
+            <select id="rating-filter" onchange="filterTable()">
+                <option value="0">全部</option>
+                <option value="5">★★★★★</option>
+                <option value="4">★★★★☆ 及以上</option>
+                <option value="3">★★★☆☆ 及以上</option>
+                <option value="2">★★☆☆☆ 及以上</option>
+                <option value="1">★☆☆☆☆ 及以上</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="sort-order">推荐等级排序:</label>
+            <select id="sort-order" onchange="sortTable()">
+                <option value="desc">从高到低 (默认)</option>
+                <option value="asc">从低到高</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="random-count">随机抽取数量:</label>
+            <input type="number" id="random-count" min="1" value="1" max="11">
+            <button onclick="randomSelect()">抽取</button>
+        </div>
+        
+        <button onclick="resetVisualControls()">重置筛选/抽取</button>
+    </div>
+
+    <div class="meal-table-container">
+        <table class="meal-table" id="meal-table">
+            <thead>
+                <tr>
+                    <th>菜名 (Dish Name)</th>
+                    <th>推荐等级 (Rating)</th>
+                    <th>菜谱链接 (Recipe Link)</th>
+                    <th>菜的图片 (Dish Image)</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 变量定义
+    const JSON_URL = 'dishes.json'; // 数据源文件
+    const STAR_FULL = '★';
+    const STAR_EMPTY = '☆';
+    const MAX_STARS = 5;
+    
+    // 全局存储当前菜品数据（仅限会话）
+    let dishData = []; 
+
+    // 辅助函数：渲染星级字符串
+    function renderStars(rating) {
+        let stars = '';
+        for (let i = 1; i <= MAX_STARS; i++) {
+            stars += (i <= rating) ? STAR_FULL : STAR_EMPTY;
+        }
+        return stars;
+    }
+    
+    // --- 数据加载 (通过 Fetch API) ---
+
+    async function loadDishes() {
+        try {
+            // 从 dishes.json 文件加载数据
+            const response = await fetch(JSON_URL);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            dishData = await response.json();
+        } catch (e) {
+            console.error("无法加载菜品数据 (dishes.json)。请确保文件存在于同一目录下。", e);
+            // 如果加载失败，回退到空数组
+            dishData = []; 
+        }
+        renderTable(); // 加载完成后渲染表格
+    }
+
+    // --- 表格渲染和监听器 ---
+
+    // 渲染整个表格
+    function renderTable() {
+        const tableBody = document.querySelector('#meal-table tbody');
+        tableBody.innerHTML = ''; // 清空现有内容
+
+        dishData.forEach(dish => {
+            const linkContent = dish.link && dish.link.trim() !== "" 
+                ? `<a href="${dish.link}" target="_blank">查看食谱链接</a>` 
+                : `<span class="empty-link">无外部链接</span>`;
+                
+            const newRow = document.createElement('tr');
+            newRow.setAttribute('data-row-id', dish.id);
+            newRow.setAttribute('data-rating', dish.rating); 
+
+            newRow.innerHTML = `
+                <td>${dish.name}</td>
+                <td class="rating-cell"><span class="rating-stars" data-value="${dish.rating}">${renderStars(dish.rating)}</span></td>
+                <td class="recipe-link">${linkContent}</td>
+                <td><span class="image-placeholder">占位符/Placeholder</span></td>
+            `;
+            
+            tableBody.appendChild(newRow);
+            
+            // 附加评分点击事件监听器
+            const newRatingCell = newRow.querySelector('.rating-cell');
+            attachRatingListener(newRatingCell, dish.id); 
+        });
+
+        // 更新随机抽取控件的最大值
+        document.getElementById('random-count').setAttribute('max', dishData.length);
+        
+        // 重新应用当前的排序和筛选状态
+        sortTable(false); 
+        filterTable(false); 
+    }
+    
+    // 附加评分点击事件监听器 (注意：此操作现在是临时的，不会保存)
+    function attachRatingListener(cell, dishId) {
+        cell.addEventListener('click', function(event) {
+            const starSpan = cell.querySelector('.rating-stars');
+            const rect = starSpan.getBoundingClientRect(); 
+            
+            const x = event.clientX - rect.left;
+            const starWidth = rect.width / MAX_STARS; 
+            let newRating = Math.ceil(x / starWidth);
+            
+            newRating = Math.max(1, Math.min(MAX_STARS, newRating));
+
+            // 1. 仅更新 DOM 元素的显示和属性（临时生效）
+            const row = cell.closest('tr');
+            row.setAttribute('data-rating', newRating);
+            starSpan.textContent = renderStars(newRating);
+            starSpan.setAttribute('data-value', newRating);
+            
+            // 2. 仅更新全局 dishData 数组（仅在当前会话中用于筛选/排序）
+            const dish = dishData.find(d => d.id === dishId);
+            if (dish) {
+                dish.rating = newRating;
+            }
+            
+            // 3. 重新应用筛选和排序
+            filterTable(true);
+            sortTable(true); 
+            
+            // 清除随机抽取状态
+            document.querySelectorAll('#meal-table tbody tr').forEach(r => r.classList.remove('random-selected'));
+        });
+    }
+
+
+    // --- 筛选、排序、随机抽取功能 (逻辑不变，仍是针对当前会话数据的操作) ---
+
+    function filterTable(resetRandom=true) {
+        const minRating = parseInt(document.getElementById('rating-filter').value);
+        const allRows = document.querySelectorAll('#meal-table tbody tr');
+
+        allRows.forEach(row => {
+            if (resetRandom) {
+                row.classList.remove('random-selected'); 
+            }
+            
+            const rating = parseInt(row.getAttribute('data-rating')) || 0;
+            
+            if (rating < minRating) {
+                row.classList.add('filtered-out');
+            } else {
+                row.classList.remove('filtered-out');
+            }
+        });
+    }
+
+    function sortTable(resetRandom=true) {
+        const tableBody = document.querySelector('#meal-table tbody');
+        const rows = Array.from(tableBody.querySelectorAll('tr'));
+        const sortOrder = document.getElementById('sort-order').value; 
+
+        rows.sort((rowA, rowB) => {
+            const ratingA = parseInt(rowA.getAttribute('data-rating')) || 0;
+            const ratingB = parseInt(rowB.getAttribute('data-rating')) || 0;
+
+            let comparison = 0;
+            if (ratingA > ratingB) {
+                comparison = 1;
+            } else if (ratingA < ratingB) {
+                comparison = -1;
+            }
+            
+            return (sortOrder === 'asc') ? comparison : comparison * -1;
+        });
+
+        rows.forEach(row => tableBody.appendChild(row));
+        
+        if (resetRandom) {
+             document.querySelectorAll('#meal-table tbody tr').forEach(r => r.classList.remove('random-selected'));
+        }
+    }
+    
+    function randomSelect() {
+        const countInput = document.getElementById('random-count');
+        const count = parseInt(countInput.value);
+        const allRows = Array.from(document.querySelectorAll('#meal-table tbody tr'));
+        const totalRows = allRows.length;
+        
+        if (isNaN(count) || count < 1 || count > totalRows) {
+            alert(`请输入一个 1 到 ${totalRows} 之间的有效数字。`);
+            countInput.value = Math.min(Math.max(1, count), totalRows);
+            return;
+        }
+
+        resetVisualControls(false); 
+        
+        // 随机打乱数组
+        const activeRows = allRows.filter(row => !row.classList.contains('filtered-out'));
+        for (let i = activeRows.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [activeRows[i], activeRows[j]] = [activeRows[j], activeRows[i]];
+        }
+        
+        const selectedRows = activeRows.slice(0, count);
+
+        // 应用筛选/显示逻辑
+        allRows.forEach(row => {
+            row.classList.remove('random-selected');
+            row.classList.add('filtered-out'); 
+        });
+
+        selectedRows.forEach(row => {
+            row.classList.remove('filtered-out'); 
+            row.classList.add('random-selected'); 
+        });
+    }
+
+    // 重置视觉控件
+    function resetVisualControls(resetControls = true) {
+        if (resetControls) {
+            document.getElementById('rating-filter').value = '0';
+            document.getElementById('sort-order').value = 'desc';
+        }
+        document.getElementById('random-count').value = '1';
+        
+        document.querySelectorAll('#meal-table tbody tr').forEach(row => {
+            row.classList.remove('filtered-out');
+            row.classList.remove('random-selected');
+        });
+        sortTable(false);
+    }
+    
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDishes(); // 加载数据并渲染表格
+    });
+</script>
+
+</body>
+</html>
