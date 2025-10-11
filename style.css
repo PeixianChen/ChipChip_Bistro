@@ -1,0 +1,424 @@
+/* --- 全局和重置样式 --- */
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f7f6;
+    color: #333;
+}
+
+.header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px 40px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 1.8em;
+}
+
+.container {
+    display: flex;
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+/* --- 导航栏 (Sidebar) 样式 --- */
+.sidebar {
+    width: 250px;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    height: fit-content;
+}
+
+.sidebar h2 {
+    color: #38a798;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.3em;
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.nav-item {
+    margin-bottom: 5px;
+}
+
+.nav-link {
+    display: block;
+    padding: 10px 12px;
+    color: #555;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+    font-weight: 500;
+}
+
+.nav-link i {
+    margin-right: 10px;
+    color: #999;
+}
+
+.nav-link:hover {
+    background-color: #f0f0f0;
+    color: #2c3e50;
+}
+
+.nav-link.active {
+    background-color: #38a798;
+    color: white;
+    font-weight: bold;
+}
+
+.nav-link.active i {
+    color: white;
+}
+
+/* --- 主内容区 (Content) 样式 --- */
+.content {
+    flex-grow: 1;
+    margin-left: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px; /* 间距 */
+}
+
+/* 菜谱卡片容器 */
+#recipe-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    width: 100%;
+}
+
+/* --- 菜谱卡片样式 --- */
+.recipe-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    width: calc(33.333% - 13.333px); /* 三列布局 */
+    transition: transform 0.2s;
+}
+
+.recipe-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.recipe-image {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+}
+
+.recipe-info {
+    padding: 15px;
+}
+
+.recipe-title {
+    margin: 0 0 10px;
+    font-size: 1.2em;
+}
+
+.recipe-title a {
+    color: #2c3e50;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.recipe-title a:hover {
+    color: #e67e22;
+}
+
+.recipe-meta {
+    font-size: 0.9em;
+    color: #777;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.recipe-meta i.fas {
+    margin-right: 5px;
+    color: #38a798;
+}
+
+/* --- 星级评分样式 --- */
+.rating-container {
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.rating-container i.far.fa-star {
+    color: #ccc;
+    transition: color 0.2s;
+}
+
+.rating-container i.far.fa-star.rated,
+.rating-container:hover i.far.fa-star:hover {
+    color: #f39c12; /* 评分或悬停时变为金色 */
+}
+/* 确保 hover 效果只作用于当前星及之前的星 */
+.rating-container i.far.fa-star:hover ~ i.far.fa-star:not(.rated) {
+    color: #ccc;
+}
+
+
+/* --- Header 按钮样式 --- */
+.header-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 10px 15px;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    font-weight: 600;
+    z-index: 10;
+}
+
+/* 新增菜谱按钮 */
+#add-recipe-btn {
+    right: 20px;
+    background-color: #e67e22;
+}
+
+#add-recipe-btn:hover {
+    background-color: #d35400;
+}
+
+/* 随机生成菜单按钮 */
+#generate-menu-btn {
+    right: 170px; /* 调整位置，避免重叠 */
+    background-color: #38a798; 
+}
+#generate-menu-btn:hover {
+    background-color: #2a8a7a; 
+}
+
+.header-btn i {
+    margin-right: 5px;
+}
+
+
+/* --- 模态框 (Modal) 容器样式 --- */
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 2000; /* 确保在最顶层 */
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.6); 
+    padding-top: 50px;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; 
+    padding: 30px;
+    border-radius: 10px;
+    width: 90%; 
+    max-width: 500px; /* 限制宽度 */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+/* 模态框关闭按钮 */
+.close-btn {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: #333;
+    text-decoration: none;
+}
+
+/* 模态框表单样式 */
+#new-recipe-form label,
+#menu-generator-form label {
+    display: block;
+    margin: 15px 0 5px;
+    font-weight: 600;
+    color: #555;
+}
+
+#new-recipe-form input[type="text"],
+#new-recipe-form input[type="url"],
+#new-recipe-form select,
+#menu-generator-form input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.modal-save-btn {
+    width: 100%;
+    background-color: #38a798;
+    color: white;
+    padding: 12px 20px;
+    margin-top: 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+.modal-save-btn:hover {
+    background-color: #2a8a7a;
+}
+
+
+/* --- 菜单列表展示样式 (在弹窗内) --- */
+.menu-list-container h2 {
+    color: #e67e22;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    font-size: 1.4em;
+}
+
+#generated-menu-ul {
+    list-style: none;
+    padding: 0;
+}
+
+#generated-menu-ul li {
+    background-color: #f9f9f9;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 5px solid #38a798;
+    border-radius: 4px;
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+#generated-menu-ul li a {
+    color: #333;
+    text-decoration: none;
+}
+
+#generated-menu-ul li a:hover {
+    text-decoration: underline;
+    color: #e67e22;
+}
+
+#menu-status {
+    color: #c0392b; /* 深红色用于警告 */
+    font-weight: bold;
+    margin-top: 15px;
+    border-top: 1px dashed #f0f0f0;
+    padding-top: 10px;
+}
+
+/* --- 响应式设计 --- */
+@media (max-width: 1024px) {
+    .recipe-card {
+        width: calc(50% - 10px); /* 两列布局 */
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .content {
+        margin-left: 0;
+    }
+
+    .recipe-card {
+        width: 100%; /* 单列布局 */
+    }
+    
+    .header-btn {
+        position: static;
+        transform: none;
+        margin: 5px;
+        display: block;
+        width: calc(100% - 10px);
+    }
+
+    .header-btn.secondary-btn {
+        right: auto;
+        margin-top: 10px;
+    }
+}
+/* --- 编辑和删除按钮容器样式 --- */
+.recipe-actions {
+    position: absolute; /* 相对于父级 .recipe-card 定位 */
+    top: 5px;
+    right: 5px;
+    z-index: 10;
+    display: flex;
+    gap: 5px;
+}
+
+.action-btn {
+    background-color: rgba(44, 62, 80, 0.7); /* 半透明深色背景 */
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+    line-height: 1; /* 确保图标对齐 */
+}
+
+.action-btn i {
+    margin: 0;
+}
+
+.action-btn:hover {
+    background-color: #2c3e50;
+}
+
+.delete-btn {
+    background-color: rgba(192, 57, 43, 0.7); /* 红色背景 */
+}
+
+.delete-btn:hover {
+    background-color: #c0392b;
+}
+
+/* 确保卡片是相对定位，以便子元素可以绝对定位 */
+.recipe-card {
+    position: relative; 
+    /* ... 保持原有样式 ... */
+}
