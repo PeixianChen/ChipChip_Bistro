@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级美食菜谱 (Supabase)</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <header class="header">
+        <h1>CHIP'S MENU</h1>
+        <button id="generate-menu-btn" class="header-btn secondary-btn"><i class="fas fa-list-alt"></i> 随机生成菜单</button>
+        <button id="add-recipe-btn" class="header-btn"><i class="fas fa-plus-circle"></i> 新增菜谱</button>
+    </header>
+    
+    <div class="container">
+        <nav class="sidebar">
+            <h2>菜品分类</h2>
+            <ul>
+                <li class="nav-item"><a href="#" class="nav-link active" data-category="all"><i class="fas fa-utensils"></i> 全部菜品</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" data-category="meat"><i class="fas fa-drumstick-bite"></i> 肉类</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" data-category="seafood"><i class="fas fa-fish"></i> 海鲜类</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" data-category="vegetable"><i class="fas fa-seedling"></i> 蔬菜类</a></li>
+            </ul>
+        </nav>
+        
+        <main class="content">
+            <div id="recipe-cards-container">
+                <h2>正在从 Supabase 加载菜谱...</h2>
+            </div>
+        </main>
+    </div>
+    
+    
+    <div id="new-recipe-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn new-recipe-close-btn">&times;</span>
+            <h2>添加新菜谱</h2>
+            <form id="new-recipe-form">
+                
+                <label for="recipe-name">菜名：</label>
+                <input type="text" id="recipe-name" required> 
+                
+                <label for="recipe-category">分类：</label>
+                <select id="recipe-category" required>
+                    <option value="meat">肉类</option>
+                    <option value="seafood">海鲜类</option>
+                    <option value="vegetable">蔬菜类</option>
+                </select>
+
+                <label>推荐星级 (默认 1 星)：</label>
+                <div id="new-recipe-rating-container" class="rating-container">
+                    <i class="far fa-star rated" data-value="1"></i>
+                    <i class="far fa-star" data-value="2"></i>
+                    <i class="far fa-star" data-value="3"></i>
+                    <i class="far fa-star" data-value="4"></i>
+                    <i class="far fa-star" data-value="5"></i>
+                </div>
+                <input type="hidden" id="new-recipe-rating" value="1">
+                
+                <label for="recipe-image-file">图片上传 (可选)：</label>
+                <input type="file" id="recipe-image-file" accept="image/*"> 
+
+                <label for="recipe-tutorial">教程 URL (可选)：</label>
+                <input type="url" id="recipe-tutorial">
+                
+                <button type="submit" class="modal-save-btn" id="save-recipe-btn">保存并添加</button>
+            </form>
+            <p id="upload-status" style="color: #e67e22; font-weight: bold; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <div id="menu-generator-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn generate-close-btn">&times;</span>
+            <h2>随机菜单定制</h2>
+            <form id="menu-generator-form">
+                
+                <p>请选择随机生成菜单的方式：</p>
+                
+                <label for="total-count">总共随机生成几道菜？</label>
+                <input type="number" id="total-count" min="1" max="10" value="0">
+                
+                <hr style="margin: 20px 0;">
+                
+                <p>或，按类别精确控制数量：</p>
+
+                <label for="meat-count">肉类菜品数量：</label>
+                <input type="number" id="meat-count" min="0" max="5" value="0">
+                
+                <label for="seafood-count">海鲜类菜品数量：</label>
+                <input type="number" id="seafood-count" min="0" max="5" value="0">
+
+                <label for="vegetable-count">蔬菜类菜品数量：</label>
+                <input type="number" id="vegetable-count" min="0" max="5" value="0">
+                
+                <button type="submit" class="modal-save-btn">开始生成菜单</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="menu-display-modal" class="modal">
+        <div class="modal-content menu-list-container">
+            <span class="close-btn display-close-btn">&times;</span>
+            <h2>今日推荐菜单</h2>
+            <ul id="generated-menu-ul">
+                </ul>
+            <p id="menu-status"></p>
+        </div>
+    </div>
+    
+    <div id="edit-recipe-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn edit-recipe-close-btn">&times;</span>
+            <h2>编辑菜谱</h2>
+            <form id="edit-recipe-form">
+                
+                <input type="hidden" id="edit-recipe-id">
+
+                <label for="edit-recipe-name">菜名：</label>
+                <input type="text" id="edit-recipe-name" required> 
+                
+                <label for="edit-recipe-category">分类：</label>
+                <select id="edit-recipe-category" required>
+                    <option value="meat">肉类</option>
+                    <option value="seafood">海鲜类</option>
+                    <option value="vegetable">蔬菜类</option>
+                </select>
+
+                <label>当前图片：</label>
+                <div id="current-image-preview">
+                    <img id="edit-current-image" src="" alt="当前图片" style="max-width: 100%; height: auto; border-radius: 4px; margin-bottom: 10px;">
+                </div>
+                
+                <label for="edit-recipe-image-file">更换图片 (可选)：</label>
+                <input type="file" id="edit-recipe-image-file" accept="image/*"> 
+                <input type="hidden" id="edit-old-image-url">
+
+                <label for="edit-recipe-tutorial">教程 URL (可选)：</label>
+                <input type="url" id="edit-recipe-tutorial">
+                
+                <button type="submit" class="modal-save-btn" id="update-recipe-btn">保存修改</button>
+            </form>
+             <p id="edit-upload-status" style="color: #e67e22; font-weight: bold; margin-top: 10px;"></p>
+        </div>
+    </div>
+    
+    <script src="script.js" defer></script>
+</body>
+</html>
