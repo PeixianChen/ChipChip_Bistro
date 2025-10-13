@@ -1,6 +1,7 @@
 // =======================================================
 // 1. Supabase 配置 & 常量：请务必替换为您自己的密钥！
 // =======================================================
+// ⚠️ 替换为您自己的 Supabase URL 和 Anon Key
 const SUPABASE_URL = 'https://cixxqwtkkrdpvagzkekj.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpeHhxd3Rra3JkcHZhZ3prZWtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDA5MTQsImV4cCI6MjA3NTY3NjkxNH0.yF_ZOo1GTNJpesElxuKUJnNQnnpZzcYxpYn2A3B8vcE'; 
 
@@ -8,7 +9,7 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const RECIPE_TABLE = 'recipes'; 
 const BUCKET_NAME = 'recipe_images'; 
 
-// ⬇️ 核心修复：分类映射表 ⬇️
+// 修复分类显示不一致的问题：分类映射表
 const CATEGORY_MAP = {
     'meat': '肉类',
     'seafood': '海鲜类',
@@ -52,7 +53,7 @@ const menuStatus = document.getElementById('menu-status');
 
 
 // =======================================================
-// 3. 核心函数定义
+// 3. 核心函数定义（确保定义在调用之前）
 // =======================================================
 
 function updateStarsVisual(container, rating) {
@@ -106,7 +107,6 @@ function bindStarListeners(container, initialRating, recipeId) {
 async function deleteOldImage(imageUrl) {
     if (!imageUrl || imageUrl.includes('placeholder')) return; 
 
-    // 假设图片 URL 结构是: .../bucket_name/filename.ext
     const urlParts = imageUrl.split('/');
     const fileName = urlParts[urlParts.length - 1];
 
@@ -183,7 +183,7 @@ function createRecipeCard(recipe) {
                 <a href="${recipe.tutorial_url || '#'}" target="_blank">${recipe.name}</a> 
             </h3>
             <p class="recipe-meta">
-                <span><i class="fas fa-tag"></i> ${CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default}</span>
+                <span><i class="fas fa-tag"></i> **种类：** ${CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default}</span>
                 <span class="rating-container">
                     ${starsHtml}
                 </span>
@@ -243,7 +243,7 @@ async function deleteRecipe(recipeId, recipeName) {
         .eq('id', recipeId)
         .single();
     
-    if (fetchError && fetchError.code !== 'PGRST116') { // 忽略未找到行 (菜谱不存在) 的错误
+    if (fetchError && fetchError.code !== 'PGRST116') { 
         console.error('删除前获取菜谱失败:', fetchError);
         alert('删除失败，无法获取菜谱信息。');
         return;
@@ -257,7 +257,7 @@ async function deleteRecipe(recipeId, recipeName) {
 
     if (deleteError) {
         console.error('Supabase 删除失败:', deleteError);
-        alert('菜谱删除失败！请**立即检查您的 Supabase DELETE RLS 策略**！'); // 明确提示是 RLS 权限问题
+        alert('菜谱删除失败！请**立即检查您的 Supabase DELETE RLS 策略**！'); 
     } else {
         alert(`菜谱 "${recipeName}" 删除成功！`);
         
@@ -284,20 +284,16 @@ async function openEditModal(recipeId) {
         return;
     }
 
-    // 填充表单
     document.getElementById('edit-recipe-name').value = recipe.name;
     document.getElementById('edit-recipe-category').value = recipe.category;
     document.getElementById('edit-recipe-tutorial').value = recipe.tutorial_url || '';
     editRecipeIdInput.value = recipe.id;
     editOldImageUrl.value = recipe.image_url || ''; 
 
-    // 显示当前图片
     editCurrentImage.src = recipe.image_url || 'https://via.placeholder.com/180x180?text=No+Image';
 
-    // 重置文件输入框
     editRecipeImageFile.value = '';
     
-    // 显示模态框
     editRecipeModal.style.display = 'block';
 }
 
@@ -342,6 +338,7 @@ async function handleEditFormSubmit(e) {
     } else {
         alert(`菜谱 "${updatedData.name}" 修改成功！`);
         editRecipeModal.style.display = 'none';
+        // 修复：自动刷新页面
         fetchAndRenderRecipes('all'); 
     }
 }
@@ -414,7 +411,7 @@ async function generateRandomMenu(options) {
         selectedRecipes.forEach(recipe => {
             const li = document.createElement('li');
             
-            // ⬇️ 关键修复：翻译菜单结果中的分类 ⬇️
+            // 修复：翻译菜单结果中的分类
             const translatedCategory = CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default;
             
             let starRatingHtml = '<span style="font-size: 0.9em; margin-left: 10px; color: #f39c12;">';
