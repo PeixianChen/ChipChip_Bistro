@@ -4,6 +4,7 @@
 // ⚠️ 替换为您自己的 Supabase URL 和 Anon Key
 const SUPABASE_URL = 'https://cixxqwtkkrdpvagzkekj.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpeHhxd3Rra3JkcHZhZ3prZWtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDA5MTQsImV4cCI6MjA3NTY3NjkxNH0.yF_ZOo1GTNJpesElxuKUJnNQnnpZzcYxpYn2A3B8vcE'; 
+const DEFAULT_IMAGE_URL = 'https://cixxqwtkkrdpvagzkekj.supabase.co/storage/v1/object/public/recipe_images/IMG_4157.JPG'; 
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const RECIPE_TABLE = 'recipes'; 
@@ -597,6 +598,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if(newRecipeCloseBtn) newRecipeCloseBtn.onclick = () => { if(newRecipeModal) newRecipeModal.style.display = 'none'; };
+    // --- 新增菜谱模态框事件 ---
+    // ... (保留 addRecipeBtn 和 newRecipeCloseBtn 的 onclick 事件)
 
     if(newRecipeForm) newRecipeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -605,12 +608,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const recipeCategory = document.getElementById('recipe-category').value;
         const recipeTutorial = document.getElementById('recipe-tutorial').value.trim();
         const initialRating = parseInt(newRecipeRatingInput.value, 10);
-        const recipeIngredients = document.getElementById('recipe-ingredients').value.trim(); // ⚠️ 请确保新增菜谱 modal 中有此 ID
+        const recipeIngredients = document.getElementById('recipe-ingredients').value.trim();
 
         const file = recipeImageFile.files[0]; 
-        let imageUrl = null;
+        let imageUrl = DEFAULT_IMAGE_URL; // 🚀 默认设置为固定的 URL
         
         if (file) {
+            // 如果用户上传了文件，则替换默认 URL
             imageUrl = await uploadRecipeImage(file, uploadStatus, saveRecipeBtn);
             if (!imageUrl) return;
         } 
@@ -624,10 +628,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .insert([{ 
                 name: recipeName, 
                 category: recipeCategory, 
-                image_url: imageUrl, 
+                image_url: imageUrl, // 此时 image_url 要么是上传的 URL，要么是固定的默认 URL
                 tutorial_url: tutorialUrl, 
                 rating: initialRating,
-                ingredients: ingredientsData // 🚀 提交新增食材
+                ingredients: ingredientsData
             }])
             .select();
 
@@ -642,6 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort()); 
         }
     });
+    // ... (省略编辑菜谱模态框事件) ...
 
     // --- 编辑菜谱模态框事件 ---
     if(editRecipeCloseBtn) editRecipeCloseBtn.onclick = () => { if(editRecipeModal) editRecipeModal.style.display = 'none'; };
