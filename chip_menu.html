@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
     <title>chipchip_bistro</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -20,7 +20,7 @@
         
         <nav class="sidebar">
             <h2>菜谱分类</h2>
-            <ul>
+            <ul id="category-nav">
                 <li class="nav-item">
                     <a href="#" class="nav-link active" data-category="all">
                         <i class="fas fa-th-large"></i>
@@ -45,6 +45,24 @@
                         <span>蔬菜类</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-category="staple">
+                        <i class="fas fa-bread-slice"></i>
+                        <span>主食</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-category="soup">
+                        <i class="fas fa-mortar-pestle"></i> 
+                        <span>汤类</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-category="other">
+                        <i class="fas fa-ellipsis-h"></i> 
+                        <span>其他</span>
+                    </a>
+                </li>
             </ul>
         </nav>
 
@@ -60,16 +78,27 @@
                     </button>
                 </div>
                 
-                <div class="sort-controls">
-                    <label for="sort-by">
-                        <i class="fas fa-sort-amount-down"></i> **排序方式：**
-                    </label>
-                    <select id="sort-by">
-                        <option value="name">按名称排序 (A-Z)</option>
-                        <option value="rating_desc">按星级排序 (高到低)</option>
-                    </select>
+                <div class="controls-container">
+                    <div class="control-group search-group">
+                        <label for="search-input">
+                            <i class="fas fa-search"></i> 搜索菜名:
+                        </label>
+                        <input type="text" id="search-input" placeholder="输入菜名进行搜索...">
+                    </div>
+                    <div class="control-group">
+                        <label for="rating-filter"><i class="fas fa-star"></i> 精选星级:</label>
+                        <select id="rating-filter">
+                            <option value="0">全部星级</option>
+                            <option value="5">5 星</option>
+                            <option value="4">4 星</option>
+                            <option value="3">3 星</option>
+                            <option value="2">2 星</option>
+                            <option value="1">1 星</option>
+                        </select>
+                    </div>
+
                 </div>
-            </div>
+                </div>
 
             <div id="recipe-cards-container">
                 </div>
@@ -88,14 +117,18 @@
                 <label for="recipe-tutorial">教程链接 (URL):</label>
                 <input type="url" id="recipe-tutorial">
     
-                <label for="recipe-category">菜品分类:</label>
-                <select id="recipe-category" required>
-                    <option value="meat">肉类</option>
-                    <option value="seafood">海鲜类</option>
-                    <option value="vegetable">蔬菜类</option>
-                </select>
+                <label for="recipe-category">菜品分类 (可多选):</label>
+                <div id="recipe-category-checkboxes" class="category-checkbox-group">
+                    <label><input type="checkbox" name="category" value="meat"> 肉类</label>
+                    <label><input type="checkbox" name="category" value="seafood"> 海鲜类</label>
+                    <label><input type="checkbox" name="category" value="vegetable"> 蔬菜类</label>
+                    <label><input type="checkbox" name="category" value="staple"> 主食</label>
+                    <label><input type="checkbox" name="category" value="soup"> 汤类</label>
+                    <label><input type="checkbox" name="category" value="other"> 其他</label>
+                </div>
+                <input type="hidden" id="category-validation-input" required>
                 
-                <label for="recipe-ingredients">**所需食材 (以逗号或分号隔开):**</label>
+                <label for="recipe-ingredients">所需食材 (以逗号或分号隔开):</label>
                 <input type="text" id="recipe-ingredients" placeholder="例如：鸡肉, 土豆, 洋葱, 咖喱粉">
                 
                 <label for="new-recipe-rating">初始评分 (1-5):</label>
@@ -131,24 +164,23 @@
             
                 <label for="edit-recipe-name">菜名:</label>
                 <input type="text" id="edit-recipe-name" required>
-            
+                
                 <label for="edit-recipe-tutorial">教程链接 (URL):</label>
                 <input type="url" id="edit-recipe-tutorial" placeholder="选填">
             
-                <div class="form-group-row">
-                    <div class="input-col">
-                        <label for="edit-recipe-category">菜品分类:</label>
-                        <select id="edit-recipe-category" required>
-                            <option value="meat">肉类</option>
-                            <option value="seafood">海鲜类</option>
-                            <option value="vegetable">蔬菜类</option>
-                        </select>
-                    </div>
-                    <div class="input-col">
-                        <label for="edit-recipe-ingredients">所需食材 (逗号/分号隔开):</label>
-                        <input type="text" id="edit-recipe-ingredients" placeholder="例如：鸡肉, 土豆">
-                    </div>
+                <label for="edit-recipe-category">菜品分类 (可多选):</label>
+                <div id="edit-recipe-category-checkboxes" class="category-checkbox-group">
+                    <label><input type="checkbox" name="edit-category" value="meat"> 肉类</label>
+                    <label><input type="checkbox" name="edit-category" value="seafood"> 海鲜类</label>
+                    <label><input type="checkbox" name="edit-category" value="vegetable"> 蔬菜类</label>
+                    <label><input type="checkbox" name="edit-category" value="staple"> 主食</label>
+                    <label><input type="checkbox" name="edit-category" value="soup"> 汤类</label>
+                    <label><input type="checkbox" name="edit-category" value="other"> 其他</label>
                 </div>
+                <input type="hidden" id="edit-category-validation-input" required>
+                        
+                <label for="edit-recipe-ingredients">所需食材 (逗号/分号隔开):</label>
+                <input type="text" id="edit-recipe-ingredients" placeholder="例如：鸡肉, 土豆">
                 
                 <label style="margin-top: 20px;">图片管理:</label>
                 <div class="image-upload-area">
@@ -194,6 +226,12 @@
                 
                 <label for="vegetable-count">蔬菜类数量：</label>
                 <input type="number" id="vegetable-count" value="0" min="0">
+                
+                <label for="staple-count">主食数量：</label>
+                <input type="number" id="staple-count" value="0" min="0">
+
+                <label for="soup-count">汤类数量：</label>
+                <input type="number" id="soup-count" value="0" min="0">
 
                 <button type="submit" class="modal-save-btn">生成菜单</button>
             </form>
