@@ -284,86 +284,87 @@ async function fetchAndRenderRecipes(selectedNavCategory = 'all', sortBy = 'name
     const currentSearchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
     const currentExactRating = ratingFilter ? parseInt(ratingFilter.value, 10) : 0; 
     
-    // 🚀 4. 核心改动：获取多选筛选栏选中的值 (Category Filter 现在是 Select)
     let selectedFilterCategories = [];
     if (categoryFilter) {
-        // **注意：这里假设 ID 为 'category-filter' 的元素仍然是一个 <select multiple>**
         selectedFilterCategories = Array.from(categoryFilter.selectedOptions).map(option => option.value);
     }
     
-    // 2. 保存当前滚动位置
+    // 2. 确定最终的分类筛选数组 (用于客户端过滤)
+    let categoriesToFilter = [];
+    if (selectedNavCategory !== 'all') {
+        categoriesToFilter.push(selectedNavCategory);
+    } else if (selectedFilterCategories.length > 0) {
+        categoriesToFilter = selectedFilterCategories;
+    }
+    
+    // 3. 保存滚动位置和显示加载状态
     let scrollPosition = 0;
     if (restoreScroll) {
         scrollPosition = window.scrollY;
     }
-
     recipeCardsContainer.innerHTML = '<h2>加载中...</h2>'; 
 
+    // --- 核心修复：只在 Supabase 执行排序，获取所有数据 ---
     let query = supabase.from(RECIPE_TABLE).select('*');
     
-    // 3. Supabase 筛选逻辑 (分类)
-    let categoriesToFilter = [];
-
-    // 优先使用左侧导航栏的单选分类
-    if (selectedNavCategory !== 'all') {
-        // 导航栏是单选，只筛选一个分类
-        categoriesToFilter.push(selectedNavCategory);
-    } else if (selectedFilterCategories.length > 0) {
-        // 如果导航栏是 'all'，则使用多选筛选栏的集合
-        categoriesToFilter = selectedFilterCategories;
-    }
-    
-    if (categoriesToFilter.length > 0) {
-        // 🚨 核心更新：使用 .overlaps 来查询数组字段
-        query = query.overlaps('category', categoriesToFilter);
-    }
-    
-    // 4. Supabase 筛选逻辑 (星级)
-    if (currentExactRating > 0 && currentExactRating <= 5) {
-        query = query.eq('rating', currentExactRating);
-    }
-
-    // 5. 排序逻辑
+    // 4. Supabase 排序逻辑 (保持不变)
     if (sortBy === 'rating_desc') {
+        // 先按评分降序，再按名称升序
         query = query.order('rating', { ascending: false }).order('name', { ascending: true });
     } else {
+         // 默认按名称升序
          query = query.order('name', { ascending: true });
     }
 
+    // 5. 执行查询，获取所有数据
     const { data: recipes, error } = await query;
 
     if (error) {
-        console.error('获取菜谱失败:', error);
-        recipeCardsContainer.innerHTML = '<h2>加载菜谱失败。请检查 Supabase 配置和 SELECT 策略。</h2>';
+        console.error('获取菜谱失败 (请检查 RLS SELECT 策略):', error);
+        recipeCardsContainer.innerHTML = '<h2>加载菜谱失败。请检查 Supabase SELECT RLS 策略。</h2>';
         return;
     }
     
-    // 6. 客户端搜索过滤 (不变)
+    // 6. 💥 客户端 JavaScript 过滤逻辑 (绕过 JSONB 问题)
     let filteredRecipes = recipes;
-    if (currentSearchTerm) {
-        if (Array.isArray(recipes)) {
-            filteredRecipes = recipes.filter(recipe => 
-                recipe.name && recipe.name.toLowerCase().includes(currentSearchTerm)
-            );
-        } else {
-             filteredRecipes = [];
-        }
+    
+    // A. 客户端分类过滤
+    if (categoriesToFilter.length > 0) {
+        filteredRecipes = filteredRecipes.filter(recipe => {
+            // 确保 recipe.category 是数组
+            const recipeCategories = Array.isArray(recipe.category) ? recipe.category : [recipe.category];
+            
+            // 检查菜谱的分类列表是否与筛选列表有任何交集
+            return recipeCategories.some(cat => categoriesToFilter.includes(cat));
+        });
     }
     
+    // B. 客户端星级过滤
+    if (currentExactRating > 0 && currentExactRating <= 5) {
+        filteredRecipes = filteredRecipes.filter(recipe => recipe.rating === currentExactRating);
+    }
+
+    // C. 客户端搜索过滤
+    if (currentSearchTerm) {
+        filteredRecipes = filteredRecipes.filter(recipe => 
+            recipe.name && recipe.name.toLowerCase().includes(currentSearchTerm)
+        );
+    }
+    
+    // 7. 渲染和恢复滚动 (不变)
     recipeCardsContainer.innerHTML = ''; 
     filteredRecipes.forEach(recipe => {
         recipeCardsContainer.appendChild(createRecipeCard(recipe));
     });
 
     if (filteredRecipes.length === 0) {
-        if (recipes.length === 0 && !currentSearchTerm && selectedNavCategory === 'all' && categoriesToFilter.length === 0 && currentExactRating === 0) {
+        if (recipes.length === 0 && !currentSearchTerm && categoriesToFilter.length === 0 && currentExactRating === 0) {
              recipeCardsContainer.innerHTML = '<h2>数据库中暂无菜谱记录。</h2>';
         } else {
              recipeCardsContainer.innerHTML = '<h2>未找到符合筛选条件的菜谱。</h2>';
         }
     }
 
-    // 7. 恢复滚动位置
     if (restoreScroll) {
         window.scrollTo(0, scrollPosition);
     }
