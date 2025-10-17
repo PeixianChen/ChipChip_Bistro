@@ -231,20 +231,30 @@ function createRecipeCard(recipe) {
 /**
  * 核心函数：根据分类和排序方式拉取并渲染菜谱
  */
-async function fetchAndRenderRecipes(category = 'all', sortBy = 'name') {
+// ------------------- CRUD/渲染操作 -------------------
+
+/**
+ * 核心函数：根据分类和排序方式拉取并渲染菜谱
+ */
+async function fetchAndRenderRecipes(category = 'all', sortBy = 'name', restoreScroll = false) {
     if (!recipeCardsContainer) return; 
+
+    // 1. 🚀 保存当前滚动位置 (如果需要恢复)
+    let scrollPosition = 0;
+    if (restoreScroll) {
+        scrollPosition = window.scrollY;
+    }
 
     recipeCardsContainer.innerHTML = '<h2>加载中...</h2>'; 
 
-    // 这里使用 select('*') 会自动包含新的 ingredients 字段
     let query = supabase.from(RECIPE_TABLE).select('*');
 
-    // 1. 筛选逻辑
+    // 2. 筛选逻辑
     if (category !== 'all') {
         query = query.eq('category', category); 
     }
 
-    // 2. 排序逻辑
+    // 3. 排序逻辑
     if (sortBy === 'rating_desc') {
         query = query.order('rating', { ascending: false }).order('name', { ascending: true });
     } else {
@@ -266,6 +276,11 @@ async function fetchAndRenderRecipes(category = 'all', sortBy = 'name') {
 
     if (recipes.length === 0) {
         recipeCardsContainer.innerHTML = '<h2>未找到菜谱。请尝试新增菜谱！</h2>';
+    }
+
+    // 4. 🚀 恢复滚动位置
+    if (restoreScroll) {
+        window.scrollTo(0, scrollPosition);
     }
 }
 
@@ -304,7 +319,7 @@ async function deleteRecipe(recipeId, recipeName) {
             await deleteOldImage(recipe.image_url);
         }
         
-        fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort());
+        fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort(), true);
     }
 }
 
@@ -386,7 +401,7 @@ async function handleEditFormSubmit(e) {
     } else {
         alert(`菜谱 "${updatedData.name}" 修改成功！`);
         if(editRecipeModal) editRecipeModal.style.display = 'none';
-        fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort()); 
+        fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort(), true); 
     }
 }
 
@@ -643,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
             newRecipeForm.reset(); 
             recipeImageFile.value = ''; 
             if(newRecipeModal) newRecipeModal.style.display = 'none';
-            fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort()); 
+            fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort(), true); 
         }
     });
     // ... (省略编辑菜谱模态框事件) ...
