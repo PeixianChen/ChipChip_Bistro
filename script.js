@@ -213,7 +213,7 @@ function createRecipeCard(recipe) {
             </p>
             
             <p class="recipe-meta">
-                <span><i class="fas fa-tag"></i> **种类：** ${CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default}</span>
+                <span><i class="fas fa-tag"></i>${CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default}</span>
                 <span class="rating-container">
                     ${starsHtml}
                 </span>
