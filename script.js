@@ -763,7 +763,7 @@ async function generateRandomMenu(options) {
         const shoppingListHeader = document.createElement('h3');
         shoppingListHeader.className = 'shopping-list-header'; 
         shoppingListHeader.style.cssText = 'margin-top: 30px; margin-bottom: 15px; color: var(--primary-color); font-size: 1.2em; border-top: 1px solid var(--border-color); padding-top: 15px;';
-        shoppingListHeader.innerHTML = '<i class="fas fa-shopping-basket"></i> **所需食材清单 (不重复):**';
+        shoppingListHeader.innerHTML = '<i class="fas fa-shopping-basket"></i> 所需食材清单:';
         
         const shoppingListP = document.createElement('p');
         shoppingListP.className = 'shopping-list-content'; 
@@ -783,15 +783,61 @@ async function generateRandomMenu(options) {
     if(menuDisplayModal) menuDisplayModal.style.display = 'block';
 }
 
+// ------------------- 新增：菜单生成表单处理函数 -------------------
+
+// ------------------- 菜单生成表单处理函数 (已优化) -------------------
+
+async function handleMenuGeneratorSubmit(e) {
+    // 阻止表单提交的默认行为（防止页面刷新）
+    e.preventDefault(); 
+    
+    // 1. 立即关闭生成器模态框
+    if(generatorModal) generatorModal.style.display = 'none';
+
+    // 2. 立即显示“今日推荐菜单”模态框
+    if(menuDisplayModal) menuDisplayModal.style.display = 'block';
+
+    // 3. 立即清除上一次生成的食材清单和菜单列表
+    const menuListContainer = generatedMenuUl ? generatedMenuUl.parentNode : null;
+    if (menuListContainer) {
+        menuListContainer.querySelectorAll('.shopping-list-header, .shopping-list-content').forEach(el => {
+            el.remove();
+        });
+    }
+    // 确保生成的菜单列表本身也清空
+    if(generatedMenuUl) generatedMenuUl.innerHTML = '';
+    
+    // 4. 设置加载状态
+    if(menuStatus) menuStatus.textContent = '正在为您随机生成菜单...';
+
+    // 5. 收集所有数量输入框的值
+    const options = {
+        totalCount: document.getElementById('total-count').value,
+        meatCount: document.getElementById('meat-count').value,
+        seafoodCount: document.getElementById('seafood-count').value,
+        vegCount: document.getElementById('vegetable-count').value,
+        stapleCount: document.getElementById('staple-count').value,
+        soupCount: document.getElementById('soup-count').value
+    };
+    
+    // 6. 调用核心生成函数
+    await generateRandomMenu(options);
+}
+
 // =======================================================
 // 4. 事件监听器 (程序入口)
 // =======================================================
 document.addEventListener('DOMContentLoaded', () => {
     
-    if (newRecipeModal) {
-        fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort()); 
-    }
+    // 确保页面加载时立刻渲染菜谱
+    fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort()); 
     
+    // 绑定随机菜单生成器的提交事件 (无需 if 语句包裹)
+    const menuGeneratorForm = document.getElementById('menu-generator-form');
+    if (menuGeneratorForm) {
+        console.log("菜单生成表单已找到，正在绑定提交事件..."); // 👈 新增这一行
+        menuGeneratorForm.addEventListener('submit', handleMenuGeneratorSubmit);
+    }
     // --- 导航栏监听 (单选分类) ---
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
