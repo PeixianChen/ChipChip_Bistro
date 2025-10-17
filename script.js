@@ -11,12 +11,15 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const RECIPE_TABLE = 'recipes'; 
 const BUCKET_NAME = 'recipe_images'; 
 
-// 分类映射表
+// 🚀 1. 更新：分类映射表 (添加 staple 和 other)
 const CATEGORY_MAP = {
     'meat': '肉类',
     'seafood': '海鲜类',
     'vegetable': '蔬菜类',
-    'default': '其他/未定义' 
+    'staple': '主食', 
+    'soup': '汤类', 
+    'other': '其他', 
+    'default': '未定义' 
 };
 
 // =======================================================
@@ -25,6 +28,12 @@ const CATEGORY_MAP = {
 const navLinks = document.querySelectorAll('.nav-link');
 const recipeCardsContainer = document.getElementById('recipe-cards-container');
 const sortByControl = document.getElementById('sort-by'); 
+
+// 🚀 核心筛选元素
+const searchInput = document.getElementById('search-input');
+const ratingFilter = document.getElementById('rating-filter'); 
+// 🚀 2. 核心改动：多选筛选器现在是复选框组，DOM 引用不变
+const categoryFilter = document.getElementById('category-filter');
 
 // 新增模态框元素
 const newRecipeModal = document.getElementById('new-recipe-modal');
@@ -35,7 +44,7 @@ const saveRecipeBtn = document.getElementById('save-recipe-btn');
 const uploadStatus = document.getElementById('upload-status'); 
 const recipeImageFile = document.getElementById('recipe-image-file');
 
-// 🚀 图片裁剪元素和实例 (新增)
+// 图片裁剪元素和实例
 let cropper = null; 
 const imageToCrop = document.getElementById('image-to-crop'); 
 const imageCropArea = document.getElementById('image-crop-area');
@@ -50,10 +59,9 @@ const editRecipeIdInput = document.getElementById('edit-recipe-id');
 const editRecipeImageFile = document.getElementById('edit-recipe-image-file');
 const editOldImageUrl = document.getElementById('edit-old-image-url');
 const editCurrentImage = document.getElementById('edit-current-image'); 
-// 🚀 新增编辑菜谱的 Cropper 变量
 const editImageToCrop = document.getElementById('edit-image-to-crop');
 const editImageCropArea = document.getElementById('edit-image-crop-area');
-let editCropper = null; // 编辑模态框专用的 Cropper 实例
+let editCropper = null; 
 
 // 菜单模态框元素
 const generatorModal = document.getElementById('menu-generator-modal');
@@ -81,7 +89,7 @@ function getCurrentSort() {
     return sortByControl ? sortByControl.value : 'name';
 }
 
-// --- 星级评分视觉更新 ---
+// --- 星级评分视觉更新 (菜谱卡片内的评分组件) ---
 function updateStarsVisual(container, rating) {
     container.querySelectorAll('i.far.fa-star').forEach(star => {
         const starValue = parseInt(star.dataset.value, 10);
@@ -137,10 +145,8 @@ function bindStarListeners(container, initialRating, recipeId) {
 // ------------------- Storage 操作 -------------------
 
 async function deleteOldImage(imageUrl) {
-    // 如果是默认图片或占位图片，则不删除
     if (!imageUrl || imageUrl === DEFAULT_IMAGE_URL || imageUrl.includes('placeholder')) return; 
 
-    // 提取文件名
     const pathParts = new URL(imageUrl).pathname.split('/');
     const fileName = pathParts[pathParts.length - 1];
 
@@ -151,7 +157,7 @@ async function deleteOldImage(imageUrl) {
         .remove([fileName]);
 
     if (error) {
-        console.error('删除旧图片失败 (Storage Policy RLS):', error);
+        console.warn('删除旧图片失败 (Storage Policy RLS 或文件不存在):', error);
     } else {
         console.log(`旧图片 "${fileName}" 删除成功。`);
     }
@@ -166,16 +172,12 @@ async function uploadRecipeImage(fileOrBlob, statusElement, saveButton) {
     saveButton.disabled = true;
     statusElement.textContent = '图片上传中...';
 
-    // 确定文件名和 MIME 类型
-    // 如果是 File 对象，使用其 name 和 type；如果是 Blob，需要自定义名称
     let fileName, fileType;
     if (fileOrBlob instanceof File) {
         const fileExtension = fileOrBlob.name.split('.').pop();
         fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
         fileType = fileOrBlob.type;
-    } else { // 假定是裁剪后的 Blob
-        // Blob 对象的 type 可能不完整，这里假设它应该匹配一个常见的图片类型
-        // 如果是 toBlob 导出，type 可能是 'image/jpeg'
+    } else { 
         const extension = fileOrBlob.type.split('/')[1] || 'jpeg';
         fileName = `cropped-${Date.now()}-${Math.random().toString(36).substring(2)}.${extension}`;
         fileType = fileOrBlob.type;
@@ -183,11 +185,10 @@ async function uploadRecipeImage(fileOrBlob, statusElement, saveButton) {
 
     const filePath = `${fileName}`; 
     
-    // 使用 fileOrBlob 进行上传
     const { error } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(filePath, fileOrBlob, {
-            contentType: fileType, // 确保设置了正确的 Content-Type
+            contentType: fileType, 
             cacheControl: '3600',
             upsert: false
         });
@@ -213,14 +214,14 @@ function createRecipeCard(recipe) {
     const card = document.createElement('div');
     card.className = 'recipe-card';
     card.dataset.recipeId = recipe.id;
-    card.dataset.category = recipe.category;
+    // 菜谱卡片现在的数据属性是数组，用于客户端筛选，但通常不需要
+    // card.dataset.category = recipe.category;
 
     let starsHtml = '';
     for (let i = 1; i <= 5; i++) {
         starsHtml += `<i class="far fa-star" data-value="${i}"></i>`;
     }
     
-    // 确保按钮上带有 edit-btn 和 delete-btn 类名，方便事件委托
     const actionButtons = `
         <div class="recipe-actions">
             <button class="action-btn edit-btn" data-id="${recipe.id}"><i class="fas fa-edit"></i></button>
@@ -228,8 +229,22 @@ function createRecipeCard(recipe) {
         </div>
     `;
     
-    // 食材显示
     const ingredientsText = recipe.ingredients || '暂无食材信息';
+    
+    // 🚀 3. 核心更新：处理多选分类显示
+    let categoriesHtml = '<span><i class="fas fa-tag"></i> ';
+    if (Array.isArray(recipe.category)) {
+        // 将分类数组转换为中文标签字符串
+        const translatedCategories = recipe.category
+            .map(cat => CATEGORY_MAP[cat] || CATEGORY_MAP.default)
+            .join(' / ');
+        categoriesHtml += translatedCategories;
+    } else {
+        // 兼容旧数据 (如果 category 仍然是字符串)
+        categoriesHtml += CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default;
+    }
+    categoriesHtml += '</span>';
+
 
     card.innerHTML = `
         ${actionButtons}
@@ -244,7 +259,7 @@ function createRecipeCard(recipe) {
             </p>
             
             <p class="recipe-meta">
-                <span><i class="fas fa-tag"></i> ${CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default}</span>
+                ${categoriesHtml}
                 <span class="rating-container">
                     ${starsHtml}
                 </span>
@@ -260,12 +275,23 @@ function createRecipeCard(recipe) {
 }
 
 /**
- * 核心函数：根据分类和排序方式拉取并渲染菜谱 (带滚动恢复)
+ * 核心函数：根据筛选条件拉取并渲染菜谱
  */
-async function fetchAndRenderRecipes(category = 'all', sortBy = 'name', restoreScroll = false) {
+async function fetchAndRenderRecipes(selectedNavCategory = 'all', sortBy = 'name', restoreScroll = false) {
     if (!recipeCardsContainer) return; 
 
-    // 1. 保存当前滚动位置 (如果需要恢复)
+    // 1. 获取筛选值
+    const currentSearchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const currentExactRating = ratingFilter ? parseInt(ratingFilter.value, 10) : 0; 
+    
+    // 🚀 4. 核心改动：获取多选筛选栏选中的值 (Category Filter 现在是 Select)
+    let selectedFilterCategories = [];
+    if (categoryFilter) {
+        // **注意：这里假设 ID 为 'category-filter' 的元素仍然是一个 <select multiple>**
+        selectedFilterCategories = Array.from(categoryFilter.selectedOptions).map(option => option.value);
+    }
+    
+    // 2. 保存当前滚动位置
     let scrollPosition = 0;
     if (restoreScroll) {
         scrollPosition = window.scrollY;
@@ -274,13 +300,30 @@ async function fetchAndRenderRecipes(category = 'all', sortBy = 'name', restoreS
     recipeCardsContainer.innerHTML = '<h2>加载中...</h2>'; 
 
     let query = supabase.from(RECIPE_TABLE).select('*');
+    
+    // 3. Supabase 筛选逻辑 (分类)
+    let categoriesToFilter = [];
 
-    // 2. 筛选逻辑
-    if (category !== 'all') {
-        query = query.eq('category', category); 
+    // 优先使用左侧导航栏的单选分类
+    if (selectedNavCategory !== 'all') {
+        // 导航栏是单选，只筛选一个分类
+        categoriesToFilter.push(selectedNavCategory);
+    } else if (selectedFilterCategories.length > 0) {
+        // 如果导航栏是 'all'，则使用多选筛选栏的集合
+        categoriesToFilter = selectedFilterCategories;
+    }
+    
+    if (categoriesToFilter.length > 0) {
+        // 🚨 核心更新：使用 .overlaps 来查询数组字段
+        query = query.overlaps('category', categoriesToFilter);
+    }
+    
+    // 4. Supabase 筛选逻辑 (星级)
+    if (currentExactRating > 0 && currentExactRating <= 5) {
+        query = query.eq('rating', currentExactRating);
     }
 
-    // 3. 排序逻辑
+    // 5. 排序逻辑
     if (sortBy === 'rating_desc') {
         query = query.order('rating', { ascending: false }).order('name', { ascending: true });
     } else {
@@ -295,16 +338,32 @@ async function fetchAndRenderRecipes(category = 'all', sortBy = 'name', restoreS
         return;
     }
     
+    // 6. 客户端搜索过滤 (不变)
+    let filteredRecipes = recipes;
+    if (currentSearchTerm) {
+        if (Array.isArray(recipes)) {
+            filteredRecipes = recipes.filter(recipe => 
+                recipe.name && recipe.name.toLowerCase().includes(currentSearchTerm)
+            );
+        } else {
+             filteredRecipes = [];
+        }
+    }
+    
     recipeCardsContainer.innerHTML = ''; 
-    recipes.forEach(recipe => {
+    filteredRecipes.forEach(recipe => {
         recipeCardsContainer.appendChild(createRecipeCard(recipe));
     });
 
-    if (recipes.length === 0) {
-        recipeCardsContainer.innerHTML = '<h2>未找到菜谱。请尝试新增菜谱！</h2>';
+    if (filteredRecipes.length === 0) {
+        if (recipes.length === 0 && !currentSearchTerm && selectedNavCategory === 'all' && categoriesToFilter.length === 0 && currentExactRating === 0) {
+             recipeCardsContainer.innerHTML = '<h2>数据库中暂无菜谱记录。</h2>';
+        } else {
+             recipeCardsContainer.innerHTML = '<h2>未找到符合筛选条件的菜谱。</h2>';
+        }
     }
 
-    // 4. 恢复滚动位置
+    // 7. 恢复滚动位置
     if (restoreScroll) {
         window.scrollTo(0, scrollPosition);
     }
@@ -315,7 +374,6 @@ async function deleteRecipe(recipeId, recipeName) {
         return;
     }
 
-    // 1. 获取图片 URL
     const { data: recipe, error: fetchError } = await supabase
         .from(RECIPE_TABLE)
         .select('image_url')
@@ -328,7 +386,6 @@ async function deleteRecipe(recipeId, recipeName) {
         return;
     }
 
-    // 2. 删除数据库记录
     const { error: deleteError } = await supabase
         .from(RECIPE_TABLE)
         .delete()
@@ -340,7 +397,6 @@ async function deleteRecipe(recipeId, recipeName) {
     } else {
         alert(`菜谱 "${recipeName}" 删除成功！`);
         
-        // 3. (可选) 删除 Storage 中的图片
         if (recipe && recipe.image_url) {
             await deleteOldImage(recipe.image_url);
         }
@@ -363,7 +419,6 @@ async function openEditModal(recipeId) {
     }
 
     document.getElementById('edit-recipe-name').value = recipe.name;
-    document.getElementById('edit-recipe-category').value = recipe.category;
     document.getElementById('edit-recipe-tutorial').value = recipe.tutorial_url || '';
     editRecipeIdInput.value = recipe.id;
     editOldImageUrl.value = recipe.image_url || ''; 
@@ -374,13 +429,41 @@ async function openEditModal(recipeId) {
         editIngredientsInput.value = recipe.ingredients || '';
     }
 
+    // 🚀 5. 核心改动：填充复选框组的逻辑
+    const editCategoryCheckboxes = document.querySelectorAll('#edit-recipe-category-checkboxes input[name="edit-category"]');
+    
+    // 1. 重置所有选项为未选中（清除上一次编辑的残留状态）
+    editCategoryCheckboxes.forEach(cb => {
+        cb.checked = false;
+    });
+
+    // 2. 选中已保存的分类 (recipe.category 字段现在是数组/jsonb)
+    if (Array.isArray(recipe.category)) {
+        // 遍历数据库返回的已选分类数组
+        recipe.category.forEach(cat => {
+            // 根据分类值 (cat) 找到对应的复选框并设为选中
+            const checkbox = document.querySelector(`#edit-recipe-category-checkboxes input[value="${cat}"]`);
+            if (checkbox) {
+                checkbox.checked = true; // 🚨 关键：设为选中状态
+            }
+        });
+    }
+    // 兼容旧数据 (如果 category 仍然是单个字符串)
+    else if (typeof recipe.category === 'string' && recipe.category) {
+        const checkbox = document.querySelector(`#edit-recipe-category-checkboxes input[value="${recipe.category}"]`);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+    }
+
+
     if (editCurrentImage) {
         editCurrentImage.src = recipe.image_url || 'https://via.placeholder.com/180x180?text=No+Image';
+        editCurrentImage.style.display = 'block'; 
     }
 
     editRecipeImageFile.value = '';
     
-    // 🚀 清理旧的裁剪状态
     if (editCropper) editCropper.destroy();
     editCropper = null;
     if(editImageCropArea) editImageCropArea.style.display = 'none';
@@ -396,37 +479,46 @@ async function handleEditFormSubmit(e) {
     const originalFile = editRecipeImageFile.files[0];
     
     const editIngredientsInput = document.getElementById('edit-recipe-ingredients');
+    
+    // 🚀 6. 核心改动：获取复选框的值并保存为数组
+    const categoryCheckboxes = document.querySelectorAll('#edit-recipe-category-checkboxes input[name="edit-category"]:checked');
+    const categories = Array.from(categoryCheckboxes).map(cb => cb.value);
+    
+    if (categories.length === 0) {
+        alert("请至少选择一个菜品种类！");
+        // 触发隐藏字段的required验证
+        document.getElementById('edit-category-validation-input').reportValidity(); 
+        return;
+    }
 
     const updatedData = {
         name: document.getElementById('edit-recipe-name').value.trim(),
-        category: document.getElementById('edit-recipe-category').value,
+        category: categories, // 🚨 关键：保存为数组 (jsonb/text[])
         tutorial_url: document.getElementById('edit-recipe-tutorial').value.trim() || null,
-        ingredients: editIngredientsInput ? editIngredientsInput.value.trim() || null : null // 提交食材信息
+        ingredients: editIngredientsInput ? editIngredientsInput.value.trim() || null : null 
     };
 
     let newImageUrl = oldImageUrl; 
     let fileToUpload = null;
     
-    // 🚀 1. 处理裁剪逻辑 (如果存在 editCropper 实例，则优先使用裁剪后的 Blob)
+    // 1. 处理裁剪逻辑
     if (editCropper && originalFile) {
         editUploadStatus.textContent = '正在处理图片...';
         
-        // 从 Cropper 获取裁剪后的 Blob
         fileToUpload = await new Promise((resolve) => {
             editCropper.getCroppedCanvas({
                 width: 440, 
                 height: 440,
             }).toBlob((blob) => {
                 resolve(blob);
-            }, originalFile.type, 0.9); // 0.9 是图片质量
+            }, originalFile.type, 0.9); 
         });
 
     } else if (originalFile) {
-        // 2. 没有裁剪，但选择了新文件 (使用原始 File 对象)
         fileToUpload = originalFile;
     }
 
-    // 3. 上传文件/Blob
+    // 2. 上传文件/Blob
     if (fileToUpload) {
         const uploadedUrl = await uploadRecipeImage(fileToUpload, editUploadStatus, updateRecipeBtn);
         
@@ -436,12 +528,10 @@ async function handleEditFormSubmit(e) {
         
         newImageUrl = uploadedUrl;
         
-        // 4. 只有当成功上传新图且旧图片不是默认图时，才删除旧图
         if (oldImageUrl !== DEFAULT_IMAGE_URL) {
             await deleteOldImage(oldImageUrl); 
         }
         
-        // 5. 清理 Cropper 状态
         if (editCropper) editCropper.destroy();
         editCropper = null;
         if(editImageCropArea) editImageCropArea.style.display = 'none';
@@ -450,7 +540,7 @@ async function handleEditFormSubmit(e) {
 
     updatedData.image_url = newImageUrl;
 
-    // 6. 更新数据库
+    // 3. 更新数据库
     const { error } = await supabase
         .from(RECIPE_TABLE)
         .update(updatedData)
@@ -465,6 +555,87 @@ async function handleEditFormSubmit(e) {
         fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort(), true); 
     }
 }
+
+// ------------------- 新增表单提交 -------------------
+async function handleNewFormSubmit(e) {
+    e.preventDefault();
+        
+    const recipeName = document.getElementById('recipe-name').value.trim();
+    const recipeTutorial = document.getElementById('recipe-tutorial').value.trim();
+    const initialRating = parseInt(newRecipeRatingInput.value, 10);
+    const recipeIngredients = document.getElementById('recipe-ingredients').value.trim();
+
+    // 🚀 7. 核心改动：读取复选框组
+    const categoryCheckboxes = document.querySelectorAll('#recipe-category-checkboxes input[name="category"]:checked');
+    const categories = Array.from(categoryCheckboxes).map(cb => cb.value);
+
+    // 确保至少选中一个
+    if (categories.length === 0) {
+        alert("请至少选择一个菜品种类！");
+        // 触发隐藏字段的required验证
+        document.getElementById('category-validation-input').reportValidity(); 
+        return;
+    }
+
+    const originalFile = recipeImageFile.files[0]; 
+    let imageUrl = DEFAULT_IMAGE_URL; 
+    let fileToUpload = null;
+    
+    // --- 裁剪和上传逻辑 ---
+    if (cropper && originalFile) {
+        uploadStatus.textContent = '正在处理图片...';
+        
+        fileToUpload = await new Promise((resolve) => {
+            cropper.getCroppedCanvas({
+                width: 440, 
+                height: 440,
+            }).toBlob((blob) => {
+                resolve(blob);
+            }, originalFile.type, 0.9); 
+        });
+
+    } else if (originalFile) {
+        fileToUpload = originalFile;
+    }
+    
+    if (fileToUpload) {
+        const uploadedUrl = await uploadRecipeImage(fileToUpload, uploadStatus, saveRecipeBtn);
+        if (!uploadedUrl) {
+            return; 
+        }
+        imageUrl = uploadedUrl;
+    }
+    
+    // --- 提交数据库 ---
+    const newRecipe = {
+        name: recipeName,
+        category: categories, // 🚨 关键：保存为数组
+        tutorial_url: recipeTutorial || null,
+        rating: initialRating,
+        ingredients: recipeIngredients || null,
+        image_url: imageUrl
+    };
+
+    const { error } = await supabase
+        .from(RECIPE_TABLE)
+        .insert([newRecipe]);
+
+    if (error) {
+        console.error('Supabase 插入失败:', error);
+        alert('新增菜谱失败！请检查您的 Supabase INSERT RLS 策略！');
+    } else {
+        alert(`菜谱 "${recipeName}" 新增成功！`);
+        if(newRecipeModal) newRecipeModal.style.display = 'none';
+        
+        if (cropper) cropper.destroy();
+        cropper = null;
+        if(imageCropArea) imageCropArea.style.display = 'none';
+        
+        newRecipeForm.reset();
+        fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort());
+    }
+}
+
 
 // ------------------- 菜单生成 -------------------
 
@@ -500,30 +671,40 @@ async function generateRandomMenu(options) {
     let selectedRecipes = [];
     if(menuStatus) menuStatus.textContent = '';
     
-    // ... (分类/总数选择逻辑 - 保持不变) ...
+    // 🚀 8. 菜单生成逻辑保持不变，因为它是基于 input value 的，不依赖于 select/checkbox 的 DOM 结构
     const meatCount = parseInt(options.meatCount);
     const seafoodCount = parseInt(options.seafoodCount);
     const vegCount = parseInt(options.vegCount);
+    const stapleCount = parseInt(options.stapleCount); 
+    const soupCount = parseInt(options.soupCount); 
     const totalCount = parseInt(options.totalCount);
     
-    const categoryTotal = meatCount + seafoodCount + vegCount;
-    const isCategoryMode = categoryTotal > 0 && (meatCount > 0 || seafoodCount > 0 || vegCount > 0); 
+    // 检查是否启用分类模式
+    const categoryTotal = meatCount + seafoodCount + vegCount + stapleCount + soupCount;
+    const isCategoryMode = categoryTotal > 0; 
 
     if (isCategoryMode) {
-        const meatRecipes = allRecipes.filter(r => r.category === 'meat');
-        const seafoodRecipes = allRecipes.filter(r => r.category === 'seafood');
-        const vegRecipes = allRecipes.filter(r => r.category === 'vegetable');
+        // 🚨 菜谱过滤必须使用 .some()，因为菜谱的 category 字段现在是数组 (保持不变)
+        const meatRecipes = allRecipes.filter(r => Array.isArray(r.category) && r.category.includes('meat'));
+        const seafoodRecipes = allRecipes.filter(r => Array.isArray(r.category) && r.category.includes('seafood'));
+        const vegRecipes = allRecipes.filter(r => Array.isArray(r.category) && r.category.includes('vegetable'));
+        const stapleRecipes = allRecipes.filter(r => Array.isArray(r.category) && r.category.includes('staple')); 
+        const soupRecipes = allRecipes.filter(r => Array.isArray(r.category) && r.category.includes('soup')); 
         
         selectedRecipes = [
             ...getRandomItems(meatRecipes, meatCount),
             ...getRandomItems(seafoodRecipes, seafoodCount),
-            ...getRandomItems(vegRecipes, vegCount)
+            ...getRandomItems(vegRecipes, vegCount),
+            ...getRandomItems(stapleRecipes, stapleCount), // 新增
+            ...getRandomItems(soupRecipes, soupCount) // 新增
         ];
         
         let missingCount = 0;
-        if (meatCount > meatRecipes.length) missingCount += (meatCount - meatRecipes.length);
-        if (seafoodCount > seafoodRecipes.length) missingCount += (seafoodCount - meatRecipes.length);
-        if (vegCount > vegRecipes.length) missingCount += (vegCount - vegRecipes.length);
+        missingCount += (meatCount > meatRecipes.length ? meatCount - meatRecipes.length : 0);
+        missingCount += (seafoodCount > seafoodRecipes.length ? seafoodCount - seafoodRecipes.length : 0);
+        missingCount += (vegCount > vegRecipes.length ? vegCount - vegRecipes.length : 0);
+        missingCount += (stapleCount > stapleRecipes.length ? stapleCount - stapleRecipes.length : 0); // 新增
+        missingCount += (soupCount > soupRecipes.length ? soupCount - soupRecipes.length : 0); // 新增
         
         if (missingCount > 0 && menuStatus) {
              menuStatus.textContent = `注意：有 ${missingCount} 道菜品因库存不足，未能按要求生成。`;
@@ -535,7 +716,6 @@ async function generateRandomMenu(options) {
         }
         selectedRecipes = getRandomItems(allRecipes, totalCount);
     }
-    // ... (分类/总数选择逻辑结束) ...
     
     
     const ingredientList = new Set();
@@ -559,7 +739,10 @@ async function generateRandomMenu(options) {
         if(generatedMenuUl) generatedMenuUl.innerHTML = '';
         selectedRecipes.forEach(recipe => {
             const li = document.createElement('li');
-            const translatedCategory = CATEGORY_MAP[recipe.category] || CATEGORY_MAP.default;
+            
+            // 🚨 关键：获取第一个分类作为菜单显示的主要分类 (如果存在)
+            const primaryCategory = Array.isArray(recipe.category) ? recipe.category[0] : recipe.category;
+            const translatedCategory = CATEGORY_MAP[primaryCategory] || CATEGORY_MAP.default;
             
             let starRatingHtml = '<span style="font-size: 0.9em; margin-left: 10px; color: #f39c12;">';
             for (let i = 1; i <= 5; i++) {
@@ -605,20 +788,33 @@ async function generateRandomMenu(options) {
 // =======================================================
 document.addEventListener('DOMContentLoaded', () => {
     
-    // 初始加载
     if (newRecipeModal) {
         fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort()); 
     }
-
-    // --- 导航栏和排序监听 (保持不变) ---
+    
+    // --- 导航栏监听 (单选分类) ---
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault(); 
             navLinks.forEach(item => item.classList.remove('active'));
             link.classList.add('active');
+            // 清空多选筛选器 (仍然是 <select multiple>，如果用户未修改 HTML)
+            if(categoryFilter) Array.from(categoryFilter.options).forEach(option => option.selected = false);
             fetchAndRenderRecipes(link.dataset.category, getCurrentSort()); 
         });
     });
+
+    // 🚀 9. 筛选栏监听 (保持不变，因为 'category-filter' 仍然是 <select multiple>)
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', () => {
+            // 清空导航栏的激活状态
+            navLinks.forEach(item => item.classList.remove('active'));
+            document.querySelector('.nav-link[data-category="all"]').classList.add('active');
+            
+            // fetchAndRenderRecipes 会自动读取 categoryFilter 的值进行筛选
+            fetchAndRenderRecipes('all', getCurrentSort()); 
+        });
+    }
 
     if (sortByControl) {
         sortByControl.addEventListener('change', () => {
@@ -626,7 +822,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // --- 卡片动作 (编辑/删除) 委托 (保持不变) ---
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort(), false); 
+        });
+    }
+
+    if (ratingFilter) {
+        ratingFilter.addEventListener('change', () => {
+            fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort());
+        });
+    }
+    
+    // --- 卡片动作 (编辑/删除) 委托 ---
     if (recipeCardsContainer) {
         recipeCardsContainer.addEventListener('click', (e) => {
             const button = e.target.closest('.action-btn');
@@ -647,10 +855,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 模态框开关事件 ---
     const addRecipeBtn = document.getElementById('add-recipe-btn');
-    if(addRecipeBtn) addRecipeBtn.onclick = () => { if(newRecipeModal) newRecipeModal.style.display = 'block'; };
+    if(addRecipeBtn) addRecipeBtn.onclick = () => { 
+        if(newRecipeModal) newRecipeModal.style.display = 'block'; 
+        // 🚀 10. 核心改动：打开新增模态框时，清除所有复选框的选中状态
+        document.querySelectorAll('#recipe-category-checkboxes input[name="category"]').forEach(cb => {
+            cb.checked = false;
+        });
+    };
     if(newRecipeCloseBtn) newRecipeCloseBtn.onclick = () => { 
         if(newRecipeModal) newRecipeModal.style.display = 'none'; 
-        // 退出时清除 Cropper 实例和图片区域
         if (cropper) cropper.destroy();
         cropper = null;
         if(imageCropArea) imageCropArea.style.display = 'none';
@@ -659,14 +872,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(editRecipeCloseBtn) editRecipeCloseBtn.onclick = () => { 
         if(editRecipeModal) editRecipeModal.style.display = 'none'; 
-        // 🚀 退出时清除编辑 Cropper 实例和图片区域
         if (editCropper) editCropper.destroy();
         editCropper = null;
         if(editImageCropArea) editImageCropArea.style.display = 'none';
+        if(editCurrentImage) editCurrentImage.style.display = 'block';
     };
     if(editRecipeForm) editRecipeForm.addEventListener('submit', handleEditFormSubmit);
+    // 🚀 11. 绑定新增菜谱的提交事件 (保持不变，但逻辑已更新)
+    if(newRecipeForm) newRecipeForm.addEventListener('submit', handleNewFormSubmit);
 
-    // --- 菜单生成模态框事件 (保持不变) ---
+
+    // --- 菜单生成模态框事件 ---
     const generateMenuBtn = document.getElementById('generate-menu-btn');
     if(generateMenuBtn) generateMenuBtn.onclick = () => { if(generatorModal) generatorModal.style.display = 'block'; };
     
@@ -675,188 +891,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const displayCloseBtn = menuDisplayModal ? menuDisplayModal.querySelector('.display-close-btn') : null;
     if(displayCloseBtn) displayCloseBtn.onclick = () => { if(menuDisplayModal) menuDisplayModal.style.display = 'none'; };
-    
-    const generatorForm = document.getElementById('menu-generator-form');
-    if(generatorForm) generatorForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const options = {
-            totalCount: document.getElementById('total-count').value,
-            meatCount: document.getElementById('meat-count').value,
-            seafoodCount: document.getElementById('seafood-count').value,
-            vegCount: document.getElementById('vegetable-count').value,
-        };
-        if(generatorModal) generatorModal.style.display = 'none';
-        generateRandomMenu(options);
-    });
-    
-    // --- 全局模态框关闭逻辑 (保持不变) ---
-    window.onclick = (event) => {
-        if (event.target == newRecipeModal) {
-            if(newRecipeCloseBtn) newRecipeCloseBtn.click(); // 使用点击关闭按钮的逻辑
-        }
-        if (event.target == generatorModal) {
-            if(generatorModal) generatorModal.style.display = 'none';
-        }
-        if (event.target == menuDisplayModal) {
-            if(menuDisplayModal) menuDisplayModal.style.display = 'none';
-        }
-        if (event.target == editRecipeModal) {
-             if(editRecipeCloseBtn) editRecipeCloseBtn.click(); // 🚀 使用点击关闭按钮的逻辑来清理 Cropper 状态
-        }
-    };
-    
-    // =======================================================
-    // 🚀 新增功能：图片裁剪 (Cropper.js) 逻辑
-    // =======================================================
-    
-    // 1. 新增菜谱：监听文件选择变化，初始化 Cropper
-    if(recipeImageFile && imageToCrop) {
-        recipeImageFile.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    imageToCrop.src = event.target.result; 
-                    if(imageCropArea) imageCropArea.style.display = 'block';
-                
-                    if (cropper) {
-                        cropper.destroy();
-                    }
-                
-                    cropper = new Cropper(imageToCrop, {
-                        aspectRatio: NaN, // 允许用户自由调整长宽
-                        viewMode: 1,
-                        initialAspectRatio: 1,
-                        autoCropArea: 1,
-                        responsive: true,
-                        background: false,
-                        dragMode: 'move',
-                        
-                        cropBoxMovable: true, 
-                        cropBoxResizable: true, 
-                        toggleDragModeOnDblclick: false,
-                    });
-                };
-                reader.readAsDataURL(file);
-            } else {
-                if(imageCropArea) imageCropArea.style.display = 'none';
-                if (cropper) cropper.destroy();
-                cropper = null;
-            }
-        });
-    }
-    
-    // 🚀 2. 编辑菜谱：监听文件选择变化，初始化 Cropper (新增逻辑)
-    if (editRecipeImageFile && editImageToCrop) {
-        editRecipeImageFile.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    editImageToCrop.src = event.target.result;
-                    if (editImageCropArea) editImageCropArea.style.display = 'block';
-
-                    if (editCropper) {
-                        editCropper.destroy();
-                    }
-
-                    editCropper = new Cropper(editImageToCrop, {
-                        aspectRatio: NaN, // 允许自由调整长宽
-                        viewMode: 1,
-                        initialAspectRatio: 1,
-                        autoCropArea: 1,
-                        responsive: true,
-                        background: false,
-                        dragMode: 'move',
-                        
-                        cropBoxMovable: true,
-                        cropBoxResizable: true,
-                        toggleDragModeOnDblclick: false,
-                    });
-                };
-                reader.readAsDataURL(file);
-                
-                // 隐藏当前的图片预览，因为裁剪区域已显示
-                if(editCurrentImage) editCurrentImage.style.display = 'none';
-            } else {
-                if (editImageCropArea) editImageCropArea.style.display = 'none';
-                if (editCropper) editCropper.destroy();
-                editCropper = null;
-                if(editCurrentImage) editCurrentImage.style.display = 'block';
-            }
-        });
-    }
-
-    
-    // 3. 提交表单处理 (新增菜谱)
-    if(newRecipeForm) newRecipeForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const recipeName = document.getElementById('recipe-name').value.trim();
-        const recipeCategory = document.getElementById('recipe-category').value;
-        const recipeTutorial = document.getElementById('recipe-tutorial').value.trim();
-        const initialRating = parseInt(newRecipeRatingInput.value, 10);
-        const recipeIngredients = document.getElementById('recipe-ingredients').value.trim();
-
-        const originalFile = recipeImageFile.files[0]; 
-        let imageUrl = DEFAULT_IMAGE_URL; 
-        let fileToUpload = null;
-
-        // --- 裁剪逻辑开始 ---
-        if (cropper && originalFile) {
-            uploadStatus.textContent = '正在处理图片...';
-            
-            // 获取裁剪后的文件 Blob
-            fileToUpload = await new Promise((resolve) => {
-                cropper.getCroppedCanvas({
-                    width: 440, 
-                    height: 440,
-                }).toBlob((blob) => {
-                    resolve(blob);
-                }, originalFile.type, 0.9); // 0.9 是图片质量
-            });
-            
-        } else if (originalFile) {
-            // 没有裁剪但选择了文件 (使用原始 File 对象)
-            fileToUpload = originalFile;
-        }
-        // --- 裁剪逻辑结束 ---
-
-        if (fileToUpload) {
-            imageUrl = await uploadRecipeImage(fileToUpload, uploadStatus, saveRecipeBtn);
-            if (!imageUrl) return;
-        } 
-
-        const tutorialUrl = recipeTutorial === '' ? null : recipeTutorial;
-        const ingredientsData = recipeIngredients === '' ? null : recipeIngredients;
-
-
-        const { error } = await supabase
-            .from(RECIPE_TABLE)
-            .insert([{ 
-                name: recipeName, 
-                category: recipeCategory, 
-                image_url: imageUrl, 
-                tutorial_url: tutorialUrl, 
-                rating: initialRating,
-                ingredients: ingredientsData
-            }])
-            .select();
-
-        if (error) {
-            console.error('新增菜谱失败:', error);
-            alert('新增菜谱失败。请检查 Supabase INSERT 策略！');
-        } else {
-            alert(`菜谱 "${recipeName}" 添加成功！`);
-            newRecipeForm.reset(); 
-            recipeImageFile.value = ''; 
-            if(newRecipeModal) newRecipeModal.style.display = 'none';
-            // 清理 Cropper 状态
-            if (cropper) cropper.destroy();
-            cropper = null;
-            if(imageCropArea) imageCropArea.style.display = 'none';
-            
-            fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort(), true); 
-        }
-    });
 });
