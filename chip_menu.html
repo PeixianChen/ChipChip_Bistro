@@ -6,6 +6,8 @@
     <title>chipchip_bistro</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -76,6 +78,8 @@
     
     <div id="new-recipe-modal" class="modal">
         <div class="modal-content">
+            <span class="close-btn new-recipe-close-btn">&times;</span>
+            <h2>新增菜谱</h2>
             <form id="new-recipe-form">
                 
                 <label for="recipe-name">菜名:</label>
@@ -97,8 +101,16 @@
                 <label for="new-recipe-rating">初始评分 (1-5):</label>
                 <input type="number" id="new-recipe-rating" min="1" max="5" value="5" required>
     
-                <label for="recipe-image-file">上传图片:</label>
+                <label for="recipe-image-file">上传图片 (可选):</label>
                 <input type="file" id="recipe-image-file" accept="image/*">
+                
+                <div id="image-crop-area" style="display: none; margin: 15px 0; border: 1px solid var(--border-color); padding: 10px; background: var(--background-color); border-radius: 8px;">
+                    <h4 style="color: var(--primary-color); margin-bottom: 10px;">裁剪图片:</h4>
+                    <div style="max-height: 300px; overflow: hidden;">
+                        <img id="image-to-crop" src="" alt="待裁剪图片">
+                    </div>
+                    <p style="margin-top: 10px; font-size: 12px; color: var(--light-text);">调整上方裁剪框，然后点击保存。</p>
+                </div>
                 <p id="upload-status"></p>
     
                 <button type="submit" id="save-recipe-btn" class="modal-save-btn">
@@ -110,6 +122,8 @@
 
     <div id="edit-recipe-modal" class="modal">
         <div class="modal-content">
+            <span class="close-btn edit-recipe-close-btn">&times;</span>
+            <h2>编辑菜谱</h2>
             <form id="edit-recipe-form">
     
                 <input type="hidden" id="edit-recipe-id">
@@ -148,7 +162,13 @@
                         <p id="edit-upload-status"></p>
                     </div>
                 </div>
-                
+                <div id="edit-image-crop-area" style="display: none; margin: 15px 0; border: 1px solid var(--border-color); padding: 10px; background: var(--background-color); border-radius: 8px;">
+                    <h4 style="color: var(--primary-color); margin-bottom: 10px;">裁剪图片:</h4>
+                    <div style="max-height: 300px; overflow: hidden;">
+                        <img id="edit-image-to-crop" src="" alt="待裁剪图片">
+                    </div>
+                    <p style="margin-top: 10px; font-size: 12px; color: var(--light-text);">调整上方裁剪框，然后点击更新菜谱。</p>
+                </div>
                 <button type="submit" id="update-recipe-btn" class="modal-save-btn">
                     <i class="fas fa-save"></i> 更新菜谱
                 </button>
@@ -192,6 +212,7 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="script.js"></script>
 </body>
 </html>
