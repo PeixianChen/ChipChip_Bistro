@@ -618,3 +618,11 @@ body {
         max-width: 200px;
     }
 }
+/* 🚀 裁剪功能强制修复样式 (确保它在 style.css 的最底部) */
+.cropper-container, 
+.cropper-crop-box, 
+.cropper-view-box {
+    /* 确保 Cropper 元素可以被点击和交互 */
+    pointer-events: auto !important; 
+    box-sizing: border-box !important;
+}
