@@ -870,3 +870,62 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     font-weight: bold;
 }
+/* =======================================================
+   密码验证按钮美化样式
+   ======================================================= */
+
+/* =======================================================
+   密码验证按钮优化样式
+   ======================================================= */
+
+/* 1. 确保模态框内容居中 */
+#password-modal .modal-content {
+    text-align: center;
+    padding-bottom: 30px; 
+}
+
+/* 2. 按钮基础样式：使用现代蓝色调，去除边框 */
+#password-submit-btn {
+    /* 尺寸和定位 */
+    width: 100px; /* 略微加宽 */
+    padding: 10px 15px; /* 增大内边距 */
+    margin-top: 25px; 
+    
+    /* 颜色和边框 */
+    background-color: #4A78A0; /* 现代蓝色 */
+    color: white;
+    border: none;
+    border-radius: 6px; /* 增加圆角，更柔和 */
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600; /* 加粗文字 */
+    
+    /* 动画过渡 */
+    transition: all 0.2s ease-in-out;
+    
+    /* 轻微阴影，增加层次感 */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); 
+}
+
+/* 3. 鼠标悬停（Hover）效果：颜色变深，微抬 */
+#password-submit-btn:hover {
+    background-color: #0056b3;
+    /* 向上轻微移动，模拟抬起效果 */
+    transform: translateY(-1px); 
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 4. 激活（Active）/点击效果：颜色最深，下沉 */
+#password-submit-btn:active {
+    background-color: #004085;
+    /* 向下轻微移动，模拟按压效果 */
+    transform: translateY(1px); 
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 5. 文本和输入框的对齐 */
+#password-form p {
+    margin-bottom: 0;
+    font-size: 1.2em; /* 字体加大，更突出 */
+    color: #333;
+}
