@@ -69,6 +69,14 @@ const menuDisplayModal = document.getElementById('menu-display-modal');
 const generatedMenuUl = document.getElementById('generated-menu-ul');
 const menuStatus = document.getElementById('menu-status');
 
+// ... (在 DOM 元素引用部分添加)
+const PASSWORD_SESSION_KEY = 'admin_authenticated';
+const passwordModal = document.getElementById('password-modal');
+const passwordForm = document.getElementById('password-form');
+const adminPasswordInput = document.getElementById('admin-password-input');
+const passwordError = document.getElementById('password-error');
+const closePasswordModalBtn = document.getElementById('close-password-modal'); // 👈 必须确保 ID 匹配
+
 
 // =======================================================
 // 3. 核心功能函数
@@ -509,7 +517,7 @@ async function handleEditFormSubmit(e) {
         fileToUpload = await new Promise((resolve) => {
             editCropper.getCroppedCanvas({
                 width: 440, 
-                height: 440,
+                height: 247,
             }).toBlob((blob) => {
                 resolve(blob);
             }, originalFile.type, 0.9); 
@@ -826,10 +834,67 @@ async function handleMenuGeneratorSubmit(e) {
 }
 
 // =======================================================
+// 5. 权限验证功能
+// =======================================================
+
+function isAuthenticated() {
+    // 检查 Session Storage 中是否有权限标记
+    return sessionStorage.getItem(PASSWORD_SESSION_KEY) === 'true';
+}
+
+function openPasswordModal() {
+    if (passwordModal) {
+        passwordModal.style.display = 'block';
+        adminPasswordInput.value = ''; // 清空输入框
+        passwordError.style.display = 'none'; // 隐藏错误信息
+    }
+}
+
+async function handlePasswordSubmit(e) {
+    e.preventDefault();
+    const password = adminPasswordInput.value.trim();
+
+    if (!password) return;
+
+    // 调用 Supabase RPC 函数进行验证
+    const { data: is_valid, error } = await supabase.rpc('check_admin_password', { input_password: password });
+
+    if (error) {
+        console.error('RPC 验证失败:', error);
+        passwordError.textContent = '验证失败，请检查数据库配置。';
+        passwordError.style.display = 'block';
+        return;
+    }
+
+    if (is_valid === true) {
+        // 验证成功：设置权限标记并关闭模态框
+        sessionStorage.setItem(PASSWORD_SESSION_KEY, 'true');
+        passwordModal.style.display = 'none';
+        alert("管理员权限已获取！");
+        
+        // 重新触发目标操作（如果用户点击了编辑/新增）
+        const pendingAction = sessionStorage.getItem('pending_action');
+        sessionStorage.removeItem('pending_action');
+        
+        if (pendingAction === 'add') {
+            if(newRecipeModal) newRecipeModal.style.display = 'block';
+        } else if (pendingAction && pendingAction.startsWith('edit-')) {
+            const recipeId = pendingAction.split('-')[1];
+            openEditModal(recipeId);
+        }
+        
+    } else {
+        // 验证失败
+        passwordError.textContent = '密码错误，请重试！';
+        passwordError.style.display = 'block';
+    }
+}
+
+// =======================================================
 // 4. 事件监听器 (程序入口)
 // =======================================================
 document.addEventListener('DOMContentLoaded', () => {
-    
+
     // 确保页面加载时立刻渲染菜谱
     fetchAndRenderRecipes(getCurrentCategory(), getCurrentSort()); 
     
@@ -889,12 +954,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const recipeId = button.dataset.id;
                 
                 if (button.classList.contains('edit-btn')) {
-                    openEditModal(recipeId);
+                    if (isAuthenticated()) {
+                        openEditModal(recipeId);
+                    } else {
+                        sessionStorage.setItem('pending_action', `edit-${recipeId}`); // 记录待处理操作
+                        openPasswordModal();
+                    }
                 } else if (button.classList.contains('delete-btn')) {
-                    const recipeCard = button.closest('.recipe-card');
-                    const recipeNameElement = recipeCard ? recipeCard.querySelector('.recipe-title a') : null;
-                    const recipeName = recipeNameElement ? recipeNameElement.textContent : '未知菜谱';
-                    deleteRecipe(recipeId, recipeName);
+                    // 删除操作也需要验证
+                     if (isAuthenticated()) {
+                        const recipeCard = button.closest('.recipe-card');
+                        const recipeNameElement = recipeCard ? recipeCard.querySelector('.recipe-title a') : null;
+                        const recipeName = recipeNameElement ? recipeNameElement.textContent.trim() : '此菜谱';
+                        deleteRecipe(recipeId, recipeName);
+                    } else {
+                        alert('请先验证管理员密码，才能删除菜谱！');
+                        openPasswordModal();
+                    }
                 }
             }
         });
@@ -902,11 +978,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 模态框开关事件 ---
     const addRecipeBtn = document.getElementById('add-recipe-btn');
-    if(addRecipeBtn) addRecipeBtn.onclick = () => { 
-        if(newRecipeModal) newRecipeModal.style.display = 'block'; 
-        // 🚀 10. 核心改动：打开新增模态框时，清除所有复选框的选中状态
-        document.querySelectorAll('#recipe-category-checkboxes input[name="category"]').forEach(cb => {
-            cb.checked = false;
+    if (addRecipeBtn) {
+        addRecipeBtn.addEventListener('click', () => {
+            if (isAuthenticated()) {
+                if(newRecipeModal) newRecipeModal.style.display = 'block';
+                // ... (您的原有清理逻辑)
+            } else {
+                sessionStorage.setItem('pending_action', 'add'); // 记录待处理操作
+                openPasswordModal();
+            }
         });
     };
     if(newRecipeCloseBtn) newRecipeCloseBtn.onclick = () => { 
@@ -938,4 +1018,105 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const displayCloseBtn = menuDisplayModal ? menuDisplayModal.querySelector('.display-close-btn') : null;
     if(displayCloseBtn) displayCloseBtn.onclick = () => { if(menuDisplayModal) menuDisplayModal.style.display = 'none'; };
+
+    // =======================================================
+    // 1. 确保在 document.addEventListener('DOMContentLoaded', ...) 内部添加
+    // =======================================================
+
+    // ... (其他事件监听器，例如导航栏、搜索、删除等)
+
+    // --- 🎯 修复：新增菜谱的图片文件选择监听器 ---
+    if (recipeImageFile) {
+        recipeImageFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            
+            // 步骤 A: 销毁任何旧的 Cropper 实例，防止冲突
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    // 步骤 B: 设置图片源
+                    imageToCrop.src = event.target.result;
+                    
+                    // 步骤 C: 显示裁剪区域
+                    imageCropArea.style.display = 'block';
+                    
+                    // 步骤 D: 🚨 确保图片加载完成后再初始化 Cropper（核心修复）
+                    imageToCrop.onload = () => {
+                        cropper = new Cropper(imageToCrop, {
+                            aspectRatio: 16/9, // 强制 1:1 比例
+                            viewMode: 1,
+                            autoCropArea: 0.8,
+                            background: false
+                        });
+                    };
+                    
+                    // 针对缓存或快速加载情况，手动触发 onload
+                    if (imageToCrop.complete) {
+                        imageToCrop.onload();
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imageCropArea.style.display = 'none';
+            }
+        });
+    }
+
+
+    // --- 🎯 修复：编辑菜谱的图片文件选择监听器 (如果需要) ---
+    if (editRecipeImageFile) {
+        editRecipeImageFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+
+            if (editCropper) {
+                editCropper.destroy();
+                editCropper = null;
+            }
+            
+            // 隐藏旧图片预览，显示裁剪区域
+            if(editCurrentImage) editCurrentImage.style.display = 'none';
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    editImageToCrop.src = event.target.result;
+                    editImageCropArea.style.display = 'block';
+                    
+                    editImageToCrop.onload = () => {
+                        editCropper = new Cropper(editImageToCrop, {
+                            aspectRatio: 16/9, 
+                            viewMode: 1,
+                            autoCropArea: 0.8,
+                            background: false
+                        });
+                    };
+                    if (editImageToCrop.complete) {
+                        editImageToCrop.onload();
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                editImageCropArea.style.display = 'none';
+                if(editCurrentImage) editCurrentImage.style.display = 'block';
+            }
+        });
+    }
+    // 绑定密码验证表单
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', handlePasswordSubmit);
+    }
+
+    // 🚨 绑定关闭密码模态框按钮事件
+    if (closePasswordModalBtn && passwordModal) {
+        closePasswordModalBtn.addEventListener('click', () => {
+            passwordModal.style.display = 'none';
+            // 清除 sessionStorage 中的待处理操作，防止用户取消后又自动触发
+            sessionStorage.removeItem('pending_action');
+        });
+    }
 });
